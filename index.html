@@ -1407,25 +1407,52 @@ function animate() {
       phys.phaseDesc = 'Sarcomere shortening';
     }
 
-    // Animate heads to attach/stroke based on manual stimulation level
+    // Animate heads to cycle dynamically based on manual stimulation level
     var stimRatio = phys.stimLevel / 100;
     for (var i = 0; i < myosinHeads.length; i++) {
       var head = myosinHeads[i];
-      var headRatio = i / myosinHeads.length;
       var sideSign = (head.restX < 0) ? 1 : -1;
-      var angleSign = (head.angle === 0) ? 1 : -1;
       
-      if (headRatio < stimRatio) {
-        head.state = XB_STATES.POWER_STROKE;
-        setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
-        
-        // Rotate them to fully stroked state (reached and pulled)
-        head.group.rotation.set(0, 0.35 * sideSign, 0);
-      } else {
-        // Detached and cocked
+      // Calculate a phase for this head based on the stimulation slider value.
+      // Offset each head index so they cycle asynchronously (like a wave).
+      var headPhase = stimRatio * 6.0 * Math.PI + (i * 0.8);
+      var theta = headPhase % (2.0 * Math.PI);
+      
+      if (stimRatio < 0.05) {
+        // At 0% stimulation, all heads are detached and cocked
         head.state = XB_STATES.DETACHED_COCKED;
         setCrossBridgeColor(head, 0xfb923c, 0x4a2a00); // orange
         head.group.rotation.set(0, -0.35 * sideSign, 0);
+      } else {
+        // Cycle states based on phase theta
+        if (theta < 0.2 * Math.PI) {
+          // Attached (Green)
+          head.state = XB_STATES.ATTACHED;
+          setCrossBridgeColor(head, 0x34d399, 0x0a3a1a);
+          head.group.rotation.set(0, -0.35 * sideSign, 0);
+        } else if (theta < 0.9 * Math.PI) {
+          // Power Stroke (Yellow) - pivot pulling
+          head.state = XB_STATES.POWER_STROKE;
+          setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00);
+          var progress = (theta - 0.2 * Math.PI) / (0.7 * Math.PI);
+          head.group.rotation.set(0, (-0.35 + 0.7 * progress) * sideSign, 0);
+        } else if (theta < 1.3 * Math.PI) {
+          // Detaching (Cyan) - returning
+          head.state = XB_STATES.DETACHING;
+          setCrossBridgeColor(head, 0x22d3ee, 0x003a3a);
+          var progress = (theta - 0.9 * Math.PI) / (0.4 * Math.PI);
+          head.group.rotation.set(0, (+0.35 - 0.7 * progress) * sideSign, 0);
+        } else if (theta < 1.7 * Math.PI) {
+          // Recocking (Gray)
+          head.state = XB_STATES.RECOCKING;
+          setCrossBridgeColor(head, 0x94a3b8, 0x1a1a1a);
+          head.group.rotation.set(0, -0.35 * sideSign, 0);
+        } else {
+          // Detached Cocked (Orange)
+          head.state = XB_STATES.DETACHED_COCKED;
+          setCrossBridgeColor(head, 0xfb923c, 0x4a2a00);
+          head.group.rotation.set(0, -0.35 * sideSign, 0);
+        }
       }
     }
     
