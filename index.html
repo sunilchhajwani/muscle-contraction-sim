@@ -428,28 +428,28 @@ function buildSarcomere() {
       sarcomereGroup.add(headGroup);
 
       // Create the structural neck (cylinder) projecting along the Z-axis
-      // Height is 0.38, base of cylinder is at group (0,0,0) by offsetting center to 0.19.
+      // Height is 0.48, base of cylinder is at group (0,0,0) by offsetting center to 0.24.
       // We rotate it by Math.PI / 2 around X so it projects along the local Z-axis.
-      var neckGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.38, 8);
+      var neckGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.48, 8);
       var neckMat = new THREE.MeshPhongMaterial({ color: 0x94a3b8, emissive: 0x1e293b, shininess: 30 });
       var neckMesh = new THREE.Mesh(neckGeo, neckMat);
       neckMesh.rotation.x = Math.PI / 2;
-      neckMesh.position.set(0, 0, 0.19);
+      neckMesh.position.set(0, 0, 0.24);
       headGroup.add(neckMesh);
 
       // Create the double heads (two adjacent spheres at the end of the neck, scaled in Z to make them oval/pear-shaped)
-      var headGeo = new THREE.SphereGeometry(0.08, 10, 8);
+      var headGeo = new THREE.SphereGeometry(0.1, 10, 8);
       var headMat = new THREE.MeshPhongMaterial({ color: 0xfb923c, emissive: 0x4a2a00, shininess: 80 });
       
       var head1Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head1 slightly in X (+0.05) and Y (+0.02) at the top of the neck (Z = 0.42)
-      head1Mesh.position.set(0.05, 0.02, 0.42);
+      // Offset head1 slightly in X (+0.06) and Y (+0.03) at the top of the neck (Z = 0.52)
+      head1Mesh.position.set(0.06, 0.03, 0.52);
       head1Mesh.scale.set(1.0, 1.0, 1.4);
       headGroup.add(head1Mesh);
 
       var head2Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head2 slightly in X (-0.05) and Y (-0.02) at the top of the neck (Z = 0.42)
-      head2Mesh.position.set(-0.05, -0.02, 0.42);
+      // Offset head2 slightly in X (-0.06) and Y (-0.03) at the top of the neck (Z = 0.52)
+      head2Mesh.position.set(-0.06, -0.03, 0.52);
       head2Mesh.scale.set(1.0, 1.0, 1.4);
       headGroup.add(head2Mesh);
 
