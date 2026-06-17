@@ -4,59 +4,102 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sarcomere — Muscle Contraction Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#0e0e10; font-family:'Segoe UI',system-ui,sans-serif; color:#e6e6e6; overflow:hidden; }
+  body { background:#0a0a0c; font-family:'Outfit',system-ui,sans-serif; color:#f4f4f5; overflow:hidden; }
   canvas { display:block; }
   #app { display:flex; height:100vh; }
+  
+  /* Custom Scrollbar for Sidebar */
+  #sidebar::-webkit-scrollbar { width: 6px; }
+  #sidebar::-webkit-scrollbar-track { background: #0c0c0e; }
+  #sidebar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+  #sidebar::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
   #sidebar {
-    width:280px; min-width:280px; background:#18181b; border-right:1px solid #2a2a30;
-    padding:16px; overflow-y:auto;
+    width:300px; min-width:300px; background:rgba(18,18,24,0.8); border-right:1px solid rgba(63,63,70,0.4);
+    padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;
+    backdrop-filter: blur(16px); z-index: 10;
   }
-  #sidebar h2 { font-size:14px; font-weight:700; margin-bottom:12px; color:#e6e6e6; letter-spacing:.5px; }
-  #sidebar h3 { font-size:11px; font-weight:600; margin-bottom:8px; margin-top:18px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
-  .ctrl-group { margin-bottom:14px; padding:12px; background:#0e0e10; border-radius:8px; border:1px solid #2a2a30; }
-  .ctrl-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-  .ctrl-label { font-size:12px; color:#e6e6e6; }
-  .ctrl-value { font-size:12px; color:#22d3ee; font-weight:600; font-family:'Courier New',monospace; }
-  input[type=range] { width:100%; -webkit-appearance:none; appearance:none; height:6px; background:#2a2a30; border-radius:3px; outline:none; cursor:pointer; }
-  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#22d3ee; cursor:pointer; }
-  input[type=range]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#22d3ee; cursor:pointer; border:none; }
-  button { background:#2a2a30; color:#e6e6e6; border:1px solid #3a3a40; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:background .2s; font-family:inherit; }
-  button:hover { background:#34d399; color:#0e0e10; border-color:#34d399; }
-  button.active { background:#22d3ee; color:#0e0e10; border-color:#22d3ee; font-weight:600; }
-  button.big { width:100%; padding:10px; font-size:13px; margin-top:6px; }
-  .toggle-row { display:flex; gap:6px; }
-  .toggle-row button { flex:1; padding:6px 8px; font-size:11px; }
-  .hint { font-size:10px; color:#64748b; margin-top:4px; line-height:1.4; }
+  #sidebar h2 { font-size:16px; font-weight:700; margin-bottom:4px; color:#ffffff; letter-spacing:.5px; text-shadow:0 0 20px rgba(34,211,238,0.2); }
+  #sidebar h3 { font-size:10px; font-weight:700; margin-bottom:6px; margin-top:8px; color:#a1a1aa; text-transform:uppercase; letter-spacing:1.5px; }
+  
+  .ctrl-group { padding:14px; background:rgba(9,9,11,0.6); border-radius:12px; border:1px solid rgba(63,63,70,0.3); transition: border-color 0.2s, box-shadow 0.2s; }
+  .ctrl-group:hover { border-color: rgba(34,211,238,0.4); box-shadow: 0 4px 20px rgba(34,211,238,0.05); }
+  
+  .ctrl-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .ctrl-label { font-size:13px; color:#e4e4e7; font-weight:500; }
+  .ctrl-value { font-size:13px; color:#22d3ee; font-weight:700; font-family:'JetBrains Mono',monospace; }
+  
+  input[type=range] { width:100%; -webkit-appearance:none; appearance:none; height:5px; background:rgba(63,63,70,0.5); border-radius:3px; outline:none; cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#22d3ee; cursor:pointer; box-shadow: 0 0 10px rgba(34,211,238,0.5); transition:transform 0.1s, background 0.1s; }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); background:#34d399; }
+  input[type=range]::-moz-range-thumb { width:14px; height:14px; border-radius:50%; background:#22d3ee; cursor:pointer; border:none; box-shadow: 0 0 10px rgba(34,211,238,0.5); transition:transform 0.1s, background 0.1s; }
+  input[type=range]::-moz-range-thumb:hover { transform: scale(1.2); background:#34d399; }
+  
+  button { background:rgba(39,39,42,0.6); color:#e4e4e7; border:1px solid rgba(63,63,70,0.5); padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; transition:all .2s; font-family:inherit; font-weight:500; }
+  button:hover { background:rgba(52,211,153,0.15); color:#34d399; border-color:#34d399; transform: translateY(-1px); }
+  button.active { background:#22d3ee; color:#09090b; border-color:#22d3ee; font-weight:700; box-shadow: 0 0 12px rgba(34,211,238,0.3); }
+  button.big { width:100%; padding:10px; font-size:13px; font-weight:600; margin-top:6px; }
+  
+  .toggle-row { display:flex; gap:8px; }
+  .toggle-row button { flex:1; padding:7px 8px; font-size:11px; }
+  .hint { font-size:11px; color:#71717a; margin-top:6px; line-height:1.4; }
+  
   #main { flex:1; position:relative; }
   #canvas-container { width:100%; height:100%; }
-  #hud { position:absolute; top:0; left:0; right:0; pointer-events:none; padding:16px; }
-  .hud-top { display:flex; justify-content:space-between; align-items:flex-start; }
-  .hud-panel { background:rgba(14,14,16,.85); border:1px solid #2a2a30; border-radius:8px; padding:10px 14px; }
-  .hud-panel h4 { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-  .hud-panel .val { font-size:22px; font-weight:700; font-family:'Courier New',monospace; color:#22d3ee; }
-  .hud-panel .unit { font-size:12px; color:#94a3b8; margin-left:4px; }
-  .phase-display { text-align:center; }
-  .phase-display .phase-name { font-size:18px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:2px; }
-  .phase-display .phase-desc { font-size:11px; color:#94a3b8; margin-top:4px; }
-  .hud-bottom { position:absolute; bottom:0; left:0; right:0; padding:16px; pointer-events:none; }
-  #force-canvas { width:100%; height:80px; background:rgba(14,14,16,.85); border:1px solid #2a2a30; border-radius:8px; }
-  .force-label { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
-  .stats-row { display:flex; gap:12px; margin-top:8px; }
-  .stat { background:rgba(14,14,16,.85); border:1px solid #2a2a30; border-radius:6px; padding:6px 10px; font-size:11px; }
-  .stat .stat-val { color:#fbbf24; font-weight:600; font-family:'Courier New',monospace; }
-  #start-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(14,14,16,.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; }
-  #start-overlay h1 { font-size:32px; font-weight:700; color:#e6e6e6; margin-bottom:8px; }
-  #start-overlay p { font-size:14px; color:#94a3b8; max-width:480px; text-align:center; margin-bottom:24px; line-height:1.6; }
-  #start-overlay .controls-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; max-width:400px; margin-bottom:24px; font-size:12px; color:#94a3b8; }
-  #start-overlay .controls-grid div { background:#18181b; padding:8px 12px; border-radius:6px; border:1px solid #2a2a30; }
+  
+  #hud { position:absolute; top:0; left:0; right:0; pointer-events:none; padding:20px; display:flex; justify-content:space-between; align-items:flex-start; }
+  .hud-left { display:flex; gap:12px; }
+  
+  .hud-panel { background:rgba(12,12,16,0.75); border:1px solid rgba(63,63,70,0.4); border-radius:12px; padding:12px 16px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .hud-panel h4 { font-size:9px; color:#a1a1aa; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; font-weight:600; }
+  .hud-panel .val { font-size:24px; font-weight:700; font-family:'JetBrains Mono',monospace; color:#22d3ee; text-shadow:0 0 10px rgba(34,211,238,0.1); }
+  .hud-panel .unit { font-size:12px; color:#71717a; margin-left:4px; font-weight:500; }
+  
+  .phase-display { text-align:center; min-width: 180px; }
+  .phase-display .phase-name { font-size:16px; font-weight:800; color:#34d399; text-transform:uppercase; letter-spacing:2px; text-shadow:0 0 15px rgba(52,211,153,0.2); }
+  .phase-display .phase-desc { font-size:11px; color:#a1a1aa; margin-top:6px; font-weight:500; }
+  
+  .hud-bottom { position:absolute; bottom:0; left:0; right:0; padding:20px; pointer-events:none; display:flex; flex-direction:column; gap:10px; }
+  
+  .force-chart-container { background:rgba(12,12,16,0.75); border:1px solid rgba(63,63,70,0.4); border-radius:12px; padding:12px; backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  #force-canvas { width:100%; height:80px; border-radius:6px; background:rgba(9,9,11,0.5); }
+  .force-label { font-size:9px; color:#a1a1aa; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:6px; font-weight:600; }
+  
+  .stats-row { display:flex; gap:10px; flex-wrap: wrap; }
+  .stat { background:rgba(12,12,16,0.75); border:1px solid rgba(63,63,70,0.4); border-radius:8px; padding:8px 12px; font-size:12px; backdrop-filter: blur(12px); color:#e4e4e7; }
+  .stat .stat-val { color:#fbbf24; font-weight:700; font-family:'JetBrains Mono',monospace; }
+  
+  #start-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:radial-gradient(circle at center, rgba(15,23,42,0.98) 0%, rgba(9,9,11,0.99) 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  #start-overlay h1 { font-size:36px; font-weight:800; color:#ffffff; margin-bottom:12px; letter-spacing:-0.5px; text-shadow:0 0 30px rgba(34,211,238,0.2); }
+  #start-overlay p { font-size:15px; color:#a1a1aa; max-width:520px; text-align:center; margin-bottom:28px; line-height:1.6; }
+  
+  #start-overlay .controls-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:480px; margin-bottom:32px; font-size:13px; color:#a1a1aa; }
+  #start-overlay .controls-grid div { background:rgba(24,24,27,0.5); padding:12px 16px; border-radius:8px; border:1px solid rgba(63,63,70,0.3); backdrop-filter: blur(8px); }
   #start-overlay .controls-grid b { color:#22d3ee; }
-  .tip-bar { position:absolute; bottom:110px; left:50%; transform:translateX(-50%); background:rgba(14,14,16,.9); border:1px solid #34d399; border-radius:8px; padding:8px 16px; font-size:12px; color:#34d399; pointer-events:none; opacity:0; transition:opacity .3s; max-width:500px; text-align:center; }
-  .tip-bar.show { opacity:1; }
-  .ref-section { margin-top:auto; padding-top:12px; border-top:1px solid #2a2a30; }
-  .ref-section details summary { font-size:10px; color:#64748b; cursor:pointer; }
-  .ref-section p { font-size:10px; color:#64748b; margin-top:6px; line-height:1.5; }
+  
+  .tip-bar { position:absolute; bottom:130px; left:50%; transform:translateX(-50%); background:rgba(9,9,11,0.85); border:1px solid #34d399; border-radius:10px; padding:10px 20px; font-size:13px; color:#34d399; pointer-events:none; opacity:0; transition:all .3s; max-width:520px; text-align:center; backdrop-filter: blur(8px); box-shadow: 0 4px 20px rgba(52,211,153,0.1); }
+  .tip-bar.show { opacity:1; transform:translate(-50%, -5px); }
+  
+  .ref-section { margin-top:auto; padding-top:16px; border-top:1px solid rgba(63,63,70,0.3); }
+  .ref-section details summary { font-size:11px; color:#71717a; cursor:pointer; font-weight:600; outline:none; }
+  .ref-section details summary:hover { color:#a1a1aa; }
+  .ref-section p { font-size:11px; color:#71717a; margin-top:8px; line-height:1.5; }
+  
+  @keyframes pulse-glowing {
+    0% { box-shadow: 0 0 5px rgba(52,211,153,0.4); }
+    50% { box-shadow: 0 0 20px rgba(52,211,153,0.8); }
+    100% { box-shadow: 0 0 5px rgba(52,211,153,0.4); }
+  }
+  #start-btn {
+    animation: pulse-glowing 2s infinite;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+  #start-btn:hover {
+    transform: scale(1.05);
+  }
 </style>
 </head>
 <body>
@@ -134,31 +177,31 @@
   <div id="main">
     <div id="canvas-container"></div>
     <div id="hud">
-      <div class="hud-top">
-        <div style="display:flex; gap:10px;">
-          <div class="hud-panel">
-            <h4>Sarcomere Length</h4>
-            <span class="val" id="hud-length">2.20</span><span class="unit">µm</span>
-          </div>
-          <div class="hud-panel">
-            <h4>[Ca²⁺]</h4>
-            <span class="val" id="hud-ca" style="color:#fbbf24;">0.10</span><span class="unit">µmol/L</span>
-          </div>
-          <div class="hud-panel">
-            <h4>Force</h4>
-            <span class="val" id="hud-force" style="color:#fb7185;">0.0</span><span class="unit">mN</span>
-          </div>
+      <div class="hud-left">
+        <div class="hud-panel">
+          <h4>Sarcomere Length</h4>
+          <span class="val" id="hud-length">2.20</span><span class="unit">µm</span>
         </div>
-        <div class="hud-panel phase-display">
-          <h4>Phase</h4>
-          <div class="phase-name" id="hud-phase">RESTING</div>
-          <div class="phase-desc" id="hud-phase-desc">Tropomyosin blocks sites</div>
+        <div class="hud-panel">
+          <h4>[Ca²⁺]</h4>
+          <span class="val" id="hud-ca" style="color:#fbbf24;">0.10</span><span class="unit">µmol/L</span>
         </div>
+        <div class="hud-panel">
+          <h4>Force</h4>
+          <span class="val" id="hud-force" style="color:#fb7185;">0.0</span><span class="unit">mN</span>
+        </div>
+      </div>
+      <div class="hud-panel phase-display">
+        <h4>Phase</h4>
+        <div class="phase-name" id="hud-phase">RESTING</div>
+        <div class="phase-desc" id="hud-phase-desc">Tropomyosin blocks sites</div>
       </div>
     </div>
     <div class="hud-bottom">
-      <div class="force-label">Force Trace (mN vs time)</div>
-      <canvas id="force-canvas"></canvas>
+      <div class="force-chart-container">
+        <div class="force-label">Force Trace (mN vs time)</div>
+        <canvas id="force-canvas"></canvas>
+      </div>
       <div class="stats-row">
         <div class="stat">Cross-bridges: <span class="stat-val" id="stat-xb">0</span></div>
         <div class="stat">ATP consumed: <span class="stat-val" id="stat-atp">0</span></div>
@@ -182,7 +225,7 @@
       <div><b>ATP toggle</b> — Normal vs rigor</div>
       <div><b>Speed</b> — Slow-mo for teaching</div>
     </div>
-    <button id="start-btn" class="big" style="max-width:200px; font-size:16px; padding:14px; background:#34d399; color:#0e0e10; border-color:#34d399; font-weight:700;">▶ Start Simulation</button>
+    <button id="start-btn" class="big" style="max-width:260px; font-size:16px; padding:14px; background:#34d399; color:#0e0e10; border-color:#34d399; font-weight:700; border-radius:10px;">▶ Start Simulation</button>
   </div>
 </div>
 
@@ -196,7 +239,7 @@
 var renderer, scene, camera, container;
 var clock;
 var orbitAngle = 0, orbitEnabled = true, isDragging = false;
-var lastMouseX = 0, lastMouseY = 0, camTheta = 0.15, camPhi = 0.08, camDist = 22;
+var lastMouseX = 0, lastMouseY = 0, camTheta = 0.8, camPhi = 1.3, camDist = 16;
 var showLabels = true;
 
 // Physiology state
@@ -238,6 +281,8 @@ var myosinHeads = [];       // {mesh, state, targetThinIdx, restPos, cockedPos}
 var tropomyosinMeshes = []; // {mesh, thinIdx}
 var calciumIons = [];       // {mesh, vx, vy, vz, phase: 'releasing'|'binding'|'returning'}
 var srMesh, srReleasePos, hZoneMesh, hZoneLeftMesh, hZoneRightMesh;
+var aZoneMesh, aZoneOutline, hZoneOutline, hZoneLeftOutline, hZoneRightOutline, refLineL, refLineR;
+var contractingArrows, relaxingArrows, contractMat, relaxMat;
 var labelSprites = [];
 
 // Cross-bridge cycle states
@@ -312,9 +357,9 @@ function buildSarcomere() {
   var scale = 4.0;
   var halfLen = (phys.restingLength * scale) / 2; // 4.4 units
 
-  // Z-LINES — dense vertical plates
+  // Z-LINES — dense vertical plates (Glowing Silver-White)
   var zGeo = new THREE.BoxGeometry(0.3, 7, 4);
-  var zMat = new THREE.MeshPhongMaterial({ color:0xe6e6e6, emissive:0x333333, shininess:60 });
+  var zMat = new THREE.MeshPhongMaterial({ color:0xffffff, emissive:0x444444, shininess:80 });
 
   zLineL = new THREE.Mesh(zGeo, zMat);
   zLineL.position.x = -halfLen;
@@ -324,25 +369,20 @@ function buildSarcomere() {
   zLineR.position.x = halfLen;
   sarcomereGroup.add(zLineR);
 
-  // M-LINE — central protein structure
+  // M-LINE — central protein structure (Glowing Purple)
   var mGeo = new THREE.BoxGeometry(0.25, 5, 3);
-  var mMat = new THREE.MeshPhongMaterial({ color:0xa78bfa, emissive:0x2a1a4a, shininess:40 });
+  var mMat = new THREE.MeshPhongMaterial({ color:0x8b5cf6, emissive:0x4c1d95, shininess:60 });
   mLine = new THREE.Mesh(mGeo, mMat);
   mLine.position.x = 0;
   sarcomereGroup.add(mLine);
 
-  // THICK FILAMENTS (MYOSIN) — rods centered on M-line
+  // THICK FILAMENTS (MYOSIN) — rods centered on M-line (Glowing Deep Blue)
   var thickLen = 1.6 * scale; // 1.6µm → A-band width
   var thickGeo = new THREE.CylinderGeometry(0.28, 0.28, thickLen, 12);
-  var thickMat = new THREE.MeshPhongMaterial({ color:0x4a90d9, emissive:0x0a1929, shininess:50 });
+  var thickMat = new THREE.MeshPhongMaterial({ color:0x3b82f6, emissive:0x1d4ed8, shininess:70 });
 
-  // Thin filaments anchored to Z-lines, extending toward center
-  var thinLen = 1.0 * scale; // ~1.0µm from each Z-line
-
-  // ═══ SIMPLIFIED TEXTBOOK LAYOUT ═══
-  // 3 thick filaments stacked vertically, well-separated
-  // 6 thin filaments (L+R per row), interdigitated between thick
-  // Students see ONE clear row at a time, with obvious sliding
+  // Thin filaments anchored to Z-lines, extending toward center (4.0 units)
+  var thinLen = 1.0 * scale; 
 
   var thickPos = [
     [0, 0],     // center row
@@ -350,8 +390,6 @@ function buildSarcomere() {
     [0, -2.8],  // bottom row
   ];
 
-  // Thin filaments offset in Z so they interdigitate but remain visible
-  // Two thin filaments per row (left + right), placed slightly in front of thick
   var thinPos = [
     [0, 0.5],     // center row, front
     [0, 2.8 + 0.5], // top row, front
@@ -363,20 +401,17 @@ function buildSarcomere() {
     var fy = thickPos[i][0];
     var fz = thickPos[i][1];
 
-    // Thick filament (myosin rod) — horizontal, centered on M-line
     var thick = new THREE.Mesh(thickGeo, thickMat);
     thick.rotation.z = Math.PI / 2;
     thick.position.set(0, fy, fz);
     sarcomereGroup.add(thick);
     thickFilaments.push({ mesh: thick, y: fy, z: fz, len: thickLen });
 
-    // Myosin heads — fewer and bigger for visibility
-    // 10 heads per filament, alternating up/down
+    // Myosin heads (30 total, alternating up/down)
     var headCount = 10;
     for (var h = 0; h < headCount; h++) {
-      var t = h / (headCount - 1); // 0 to 1
+      var t = h / (headCount - 1); 
       var hx = -thickLen/2 + t * thickLen;
-      // Alternate top and bottom of filament
       var angle = (h % 2 === 0) ? 0 : Math.PI;
       var headY = fy + Math.cos(angle) * 0.38;
       var headZ = fz;
@@ -403,31 +438,29 @@ function buildSarcomere() {
     }
   }
 
-  // ── Build thin filaments (actin) — interdigitated in front of thick ──
+  // ── Build thin filaments (actin) (Glowing Emerald Green) ──
   var thinGeo = new THREE.CylinderGeometry(0.1, 0.1, thinLen, 8);
-  var thinMat = new THREE.MeshPhongMaterial({ color:0x34d399, emissive:0x0a2a1a, shininess:30, transparent:true, opacity:0.95 });
+  var thinMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x047857, shininess:50, transparent:true, opacity:0.95 });
 
   for (var j = 0; j < thinPos.length; j++) {
     var ty = thinPos[j][0];
     var tz = thinPos[j][1];
 
-    // Left thin filament (from left Z-line, extending right toward center)
     var thinL = new THREE.Mesh(thinGeo, thinMat);
     thinL.rotation.z = Math.PI / 2;
     thinL.position.set(-halfLen + thinLen/2, ty, tz);
     sarcomereGroup.add(thinL);
     thinFilaments.push({ mesh: thinL, side: 'L', y: ty, z: tz, len: thinLen, startX: -halfLen, endX: -halfLen + thinLen });
 
-    // Right thin filament (from right Z-line, extending left toward center)
     var thinR = new THREE.Mesh(thinGeo, thinMat);
     thinR.rotation.z = Math.PI / 2;
     thinR.position.set(halfLen - thinLen/2, ty, tz);
     sarcomereGroup.add(thinR);
     thinFilaments.push({ mesh: thinR, side: 'R', y: ty, z: tz, len: thinLen, startX: halfLen - thinLen, endX: halfLen });
 
-    // Tropomyosin — one strand alongside each thin filament pair
-    var tropoGeo = new THREE.CylinderGeometry(0.05, 0.05, thinLen, 6);
-    var tropoMat = new THREE.MeshPhongMaterial({ color:0xfb7185, emissive:0x3a0a1a, shininess:20, transparent:true, opacity:0.75 });
+    // Tropomyosin ribbons (Glowing Neon Red)
+    var tropoGeo = new THREE.CylinderGeometry(0.04, 0.04, thinLen, 6);
+    var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40, transparent:true, opacity:0.75 });
     var tropoL = new THREE.Mesh(tropoGeo, tropoMat);
     tropoL.rotation.z = Math.PI / 2;
     tropoL.position.set(-halfLen + thinLen/2, ty + 0.18, tz);
@@ -441,23 +474,110 @@ function buildSarcomere() {
     tropomyosinMeshes.push({ mesh: tropoR, thinIdx: thinFilaments.length - 1, side: 'R', baseY: ty + 0.18, baseZ: tz });
   }
 
-  // H-ZONE indicator — semi-transparent box showing the gap between thin filament tips
-  // This shrinks during contraction — the key visual of sliding filament theory
-  var hZoneMat = new THREE.MeshBasicMaterial({ color:0xfbbf24, transparent:true, opacity:0.06, side: THREE.DoubleSide });
-  var hZoneGeo = new THREE.BoxGeometry(thinLen, 7, 7);
+  // ── Reference / Outline Elements ──
+
+  // STATIONARY REFERENCE GUIDES — dotted lines at resting Z-line positions (x = -5.0 and +5.0)
+  var refMat = new THREE.LineDashedMaterial({ color: 0xa1a1aa, dashSize: 0.2, gapSize: 0.15, transparent: true, opacity: 0.4 });
+  
+  var refGeoL = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-5.0, -3.5, -2),
+    new THREE.Vector3(-5.0, 3.5, -2),
+    new THREE.Vector3(-5.0, 3.5, 2),
+    new THREE.Vector3(-5.0, -3.5, 2),
+    new THREE.Vector3(-5.0, -3.5, -2)
+  ]);
+  refLineL = new THREE.Line(refGeoL, refMat);
+  refLineL.computeLineDistances();
+  sarcomereGroup.add(refLineL);
+
+  var refGeoR = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(5.0, -3.5, -2),
+    new THREE.Vector3(5.0, 3.5, -2),
+    new THREE.Vector3(5.0, 3.5, 2),
+    new THREE.Vector3(5.0, -3.5, 2),
+    new THREE.Vector3(5.0, -3.5, -2)
+  ]);
+  refLineR = new THREE.Line(refGeoR, refMat);
+  refLineR.computeLineDistances();
+  sarcomereGroup.add(refLineR);
+
+  // A-ZONE indicator — centered purple box (constant width)
+  var aZoneMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.05, side: THREE.DoubleSide });
+  var aZoneGeo = new THREE.BoxGeometry(thickLen, 6.8, 6.8);
+  aZoneMesh = new THREE.Mesh(aZoneGeo, aZoneMat);
+  aZoneMesh.position.set(0, 0, 0);
+  sarcomereGroup.add(aZoneMesh);
+
+  var aZoneEdges = new THREE.EdgesGeometry(aZoneGeo);
+  var aZoneLineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.2 });
+  aZoneOutline = new THREE.LineSegments(aZoneEdges, aZoneLineMat);
+  aZoneMesh.add(aZoneOutline);
+
+  // H-ZONE indicator — shrinking yellow box
+  var hZoneMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+  var hZoneGeo = new THREE.BoxGeometry(thinLen, 6.9, 6.9);
   hZoneMesh = new THREE.Mesh(hZoneGeo, hZoneMat);
   hZoneMesh.position.set(0, 0, 0);
   sarcomereGroup.add(hZoneMesh);
 
-  // I-BAND indicators — regions near Z-lines containing only thin filaments
-  var iBandMat = new THREE.MeshBasicMaterial({ color:0x22d3ee, transparent:true, opacity:0.04, side: THREE.DoubleSide });
-  var iBandGeoL = new THREE.BoxGeometry(thinLen, 7, 7);
+  var hZoneEdges = new THREE.EdgesGeometry(hZoneGeo);
+  var hZoneLineMat = new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.35 });
+  hZoneOutline = new THREE.LineSegments(hZoneEdges, hZoneLineMat);
+  hZoneMesh.add(hZoneOutline);
+
+  // I-BAND indicators — shrinking cyan boxes
+  var iBandMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+  var iBandGeoL = new THREE.BoxGeometry(thinLen, 6.9, 6.9);
+  
   hZoneLeftMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
   hZoneLeftMesh.position.set(-halfLen + thinLen/2, 0, 0);
   sarcomereGroup.add(hZoneLeftMesh);
+
+  var iBandEdges = new THREE.EdgesGeometry(iBandGeoL);
+  var iBandLineMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 });
+  hZoneLeftOutline = new THREE.LineSegments(iBandEdges, iBandLineMat);
+  hZoneLeftMesh.add(hZoneLeftOutline);
+
   hZoneRightMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
   hZoneRightMesh.position.set(halfLen - thinLen/2, 0, 0);
   sarcomereGroup.add(hZoneRightMesh);
+
+  hZoneRightOutline = new THREE.LineSegments(iBandEdges, iBandLineMat);
+  hZoneRightMesh.add(hZoneRightOutline);
+
+  // ── Motion Arrows Group ──
+  contractingArrows = new THREE.Group();
+  relaxingArrows = new THREE.Group();
+  sarcomereGroup.add(contractingArrows);
+  sarcomereGroup.add(relaxingArrows);
+
+  var arrowGeo = new THREE.ConeGeometry(0.18, 0.5, 8);
+  contractMat = new THREE.MeshBasicMaterial({ color: 0xfb7185, transparent: true, opacity: 0 }); 
+  relaxMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0 }); 
+
+  for (var k = 0; k < 2; k++) {
+    var posX = -3.5 + k * 1.5;
+    
+    var cArrowL = new THREE.Mesh(arrowGeo, contractMat);
+    cArrowL.rotation.z = -Math.PI / 2;
+    cArrowL.position.set(posX, 3.2, 0);
+    contractingArrows.add(cArrowL);
+
+    var rArrowL = new THREE.Mesh(arrowGeo, relaxMat);
+    rArrowL.rotation.z = Math.PI / 2;
+    rArrowL.position.set(posX, 3.2, 0);
+    relaxingArrows.add(rArrowL);
+
+    var cArrowR = new THREE.Mesh(arrowGeo, contractMat);
+    cArrowR.rotation.z = Math.PI / 2;
+    cArrowR.position.set(-posX, 3.2, 0);
+    contractingArrows.add(cArrowR);
+
+    var rArrowR = new THREE.Mesh(arrowGeo, relaxMat);
+    rArrowR.rotation.z = -Math.PI / 2;
+    rArrowR.position.set(-posX, 3.2, 0);
+    relaxingArrows.add(rArrowR);
+  }
 
   // Create labels
   createLabels(halfLen);
@@ -629,20 +749,16 @@ function updateCrossBridges(dt) {
     switch (head.state) {
       case XB_STATES.DETACHED_COCKED:
         // Head is cocked, waiting for binding site to be exposed
-        if (caActive && phys.atpNormal && Math.random() < dt * 8 * (phys.caConc / 10)) {
+        // Removed `phys.atpNormal` check so it can bind to actin using its already hydrolyzed ADP+Pi even if ATP is depleted
+        if (caActive && Math.random() < dt * 8 * (phys.caConc / 10)) {
           // Attach to nearest thin filament
           var nearestThin = findNearestThin(head.mesh.position);
           if (nearestThin >= 0) {
             head.targetThinIdx = nearestThin;
             head.state = XB_STATES.ATTACHED;
-            head.mesh.material.color.setHex(0x34d399);
+            head.mesh.material.color.setHex(0x34d399); // green
             head.mesh.material.emissive.setHex(0x0a3a1a);
           }
-        } else if (!phys.atpNormal && caActive) {
-          // ATP depleted — enter rigor (attach and stay)
-          head.state = XB_STATES.RIGOR;
-          head.mesh.material.color.setHex(0xfb7185);
-          head.mesh.material.emissive.setHex(0x3a0a1a);
         }
         break;
 
@@ -652,14 +768,19 @@ function updateCrossBridges(dt) {
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
           head.state = XB_STATES.POWER_STROKE;
-          head.mesh.material.color.setHex(0xfbbf24);
+          head.mesh.material.color.setHex(0xfbbf24); // yellow
+          head.mesh.material.emissive.setHex(0x4a3a00);
         }
         // Move head toward actin binding site
         var thin = thinFilaments[head.targetThinIdx];
         if (thin) {
           var tp = thin.mesh.position;
-          var dx = tp.x + (head.restX * 0.3) - head.mesh.position.x;
+          var targetX = tp.x + (head.restX * 0.3);
+          var dx = targetX - head.mesh.position.x;
           head.mesh.position.x += dx * dt * 5;
+          // Smoothly reach in Y and Z to touch the thin filament
+          head.mesh.position.y += (tp.y - head.mesh.position.y) * dt * 5;
+          head.mesh.position.z += (tp.z - head.mesh.position.z) * dt * 5;
         }
         attachedCount++;
         break;
@@ -668,21 +789,35 @@ function updateCrossBridges(dt) {
         // Head pivots ~45°, pulling actin toward M-line
         head.strokeProgress += dt * 6;
         var sp = Math.min(head.strokeProgress, 1.0);
-        // Animate head position: pivot downward and pull
         var pullAmount = sp * 0.4;
-        head.mesh.position.x = head.restX - pullAmount;
-        head.mesh.position.y = head.restY - pullAmount * 0.5;
+        
+        // Correct pull directions!
+        var pullX = (head.restX < 0) ? pullAmount : -pullAmount;
+        var pullY = (head.angle === 0) ? -pullAmount * 0.5 : pullAmount * 0.5;
+        
+        head.mesh.position.x = head.restX + pullX;
+
+        var thin = thinFilaments[head.targetThinIdx];
+        if (thin) {
+          var tp = thin.mesh.position;
+          // Reaching in Z to touch thin filament, and pivot in Y
+          head.mesh.position.y = head.restY + pullY + (tp.y - head.restY) * 0.5;
+          head.mesh.position.z = head.restZ + (tp.z - head.restZ) * 0.8;
+        } else {
+          head.mesh.position.y = head.restY + pullY;
+        }
 
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
           phys.atpConsumed += 0.5; // ADP + Pi released
           if (phys.atpNormal) {
             head.state = XB_STATES.DETACHING;
-            head.mesh.material.color.setHex(0x22d3ee);
+            head.mesh.material.color.setHex(0x22d3ee); // cyan
+            head.mesh.material.emissive.setHex(0x003a3a);
           } else {
             // Rigor — stuck in attached state
             head.state = XB_STATES.RIGOR;
-            head.mesh.material.color.setHex(0xfb7185);
+            head.mesh.material.color.setHex(0xfb7185); // rose
             head.mesh.material.emissive.setHex(0x3a0a1a);
           }
         }
@@ -702,7 +837,8 @@ function updateCrossBridges(dt) {
           head.detachProgress = 0;
           head.state = XB_STATES.RECOCKING;
           phys.atpConsumed += 0.5; // ATP hydrolyzed
-          head.mesh.material.color.setHex(0x94a3b8);
+          head.mesh.material.color.setHex(0x94a3b8); // gray
+          head.mesh.material.emissive.setHex(0x1a1a1a);
         }
         break;
 
@@ -717,13 +853,19 @@ function updateCrossBridges(dt) {
         if (head.recockProgress >= 1.0) {
           head.recockProgress = 0;
           head.state = XB_STATES.DETACHED_COCKED;
-          head.mesh.material.color.setHex(0xfb923c);
+          head.mesh.material.color.setHex(0xfb923c); // orange
           head.mesh.material.emissive.setHex(0x4a2a00);
         }
         break;
 
       case XB_STATES.RIGOR:
         // Stuck — no ATP to detach. Heads remain on actin.
+        if (phys.atpNormal) {
+          // ATP restored! Transition to detaching
+          head.state = XB_STATES.DETACHING;
+          head.mesh.material.color.setHex(0x22d3ee); // cyan
+          head.mesh.material.emissive.setHex(0x003a3a);
+        }
         attachedCount++;
         break;
     }
@@ -786,15 +928,26 @@ function updatePhysiology(dt) {
     phys.phaseDesc = 'Ca²⁺ pumped back to SR';
   }
 
-  // Sarcomere shortening based on cross-bridges
-  var xbRatio = phys.totalXb / myosinHeads.length;
-  var targetLength = phys.restingLength - (phys.restingLength - phys.minLength) * xbRatio;
+  // Sarcomere shortening based on active cross-bridge cycling vs elastic restoration
   if (!phys.atpNormal) {
-    // Rigor — locked at shortened length
-    targetLength = phys.minLength;
+    // Rigor — lock at fully contracted length (1.6 µm)
+    var targetLength = phys.minLength;
+    phys.sarcomereLength += (targetLength - phys.sarcomereLength) * dt * 5;
+  } else {
+    // Shortening rate proportional to active cross-bridges (up to 3.0 µm/s)
+    var shorteningVelocity = (phys.totalXb / myosinHeads.length) * 3.0;
+    
+    // Elastic restoring rate pulls back to resting length of 2.2 µm (constant 1.5)
+    var restoringVelocity = (phys.restingLength - phys.sarcomereLength) * 1.5;
+    
+    // Net velocity determines rate of length change
+    var lengthChangeRate = -shorteningVelocity + restoringVelocity;
+    phys.sarcomereLength += lengthChangeRate * dt;
+    
+    // Clamp to physical physiological boundaries
+    if (phys.sarcomereLength < phys.minLength) phys.sarcomereLength = phys.minLength;
+    if (phys.sarcomereLength > phys.restingLength) phys.sarcomereLength = phys.restingLength;
   }
-  // Faster interpolation so movement is clearly visible to students
-  phys.sarcomereLength += (targetLength - phys.sarcomereLength) * dt * 5;
 
   // Force proportional to cross-bridges
   phys.force = phys.totalXb * 0.8;
@@ -808,29 +961,27 @@ function updatePhysiology(dt) {
 
 function updateVisuals(dt) {
   var scale = 4.0;
-  var halfLen = (phys.sarcomereLength * scale) / 2;
-  var thickLen = 1.6 * scale; // A-band stays constant
-  var thinLen = 1.0 * scale;
+  
+  // Exaggerate length visually for demonstration clarity
+  // Actual physical length is 2.2 -> 1.6
+  // Visual length will range from 2.5 -> 1.6 (a 1.5x exaggeration of displacement)
+  var visualLength = 1.6 + (phys.sarcomereLength - 1.6) * 1.5;
+  var halfLen = (visualLength * scale) / 2;
+  var thickLen = 1.6 * scale; // A-band constant (6.4 units)
+  var thinLen = 1.0 * scale;  // Thin filament length stays constant (4.0 units)
 
   // Move Z-lines (they move inward during contraction)
   zLineL.position.x = -halfLen;
   zLineR.position.x = halfLen;
 
-  // Thick filaments (myosin) stay centered — A-band does NOT change
-  // (already centered at x=0, no need to move)
-
   // Thin filaments (actin) slide inward — anchored to Z-lines
-  // As sarcomere shortens, Z-lines move inward, pulling thin filaments deeper
-  // into the thick filament array → H-zone shrinks, I-band shrinks
   for (var i = 0; i < thinFilaments.length; i++) {
     var tf = thinFilaments[i];
     if (tf.side === 'L') {
-      // Left thin filament: anchored at left Z-line, tip extends right
       tf.mesh.position.x = -halfLen + thinLen / 2;
       tf.startX = -halfLen;
       tf.endX = -halfLen + thinLen;
     } else {
-      // Right thin filament: anchored at right Z-line, tip extends left
       tf.mesh.position.x = halfLen - thinLen / 2;
       tf.startX = halfLen - thinLen;
       tf.endX = halfLen;
@@ -844,37 +995,33 @@ function updateVisuals(dt) {
     if (thinRef) {
       tp.mesh.position.x = thinRef.mesh.position.x;
     }
-    // Tropomyosin shifts away from actin when Ca²⁺ binds troponin
     var caRatio = Math.min(phys.caConc / 5, 1);
     tp.mesh.position.y = tp.baseY + caRatio * 0.2;
-    // Color shift — more orange when shifted
     var r = 0xfb, g = Math.round(0x71 + caRatio * 0x20), b = Math.round(0x85 - caRatio * 0x40);
     tp.mesh.material.color.setRGB(r/255, g/255, b/255);
   }
 
-  // H-ZONE: gap between the tips of left and right thin filaments
-  // At rest: H-zone = sarcomereLength - 2*thinLen
-  // During contraction, thin filament tips slide deeper → H-zone shrinks
-  // H-zone = (halfLen - thinLen) - (-halfLen + thinLen) = 2*(halfLen - thinLen)
+  // H-ZONE: gap between thin filament tips
   var hZoneWidth = 2 * (halfLen - thinLen);
-  if (hZoneWidth < 0) hZoneWidth = 0; // fully overlapped
+  if (hZoneWidth < 0) hZoneWidth = 0;
   if (hZoneMesh) {
     hZoneMesh.scale.x = hZoneWidth > 0 ? hZoneWidth / thinLen : 0.001;
     hZoneMesh.position.x = 0;
+    hZoneMesh.visible = hZoneWidth > 0.01;
   }
 
-  // I-BAND: region near each Z-line containing only thin filaments (no thick)
-  // I-band = halfLen - thickLen/2
-  // As sarcomere shortens, I-band shrinks (Z-lines move closer to thick filament ends)
+  // I-BAND: regions near Z-lines containing only thin filaments (no thick)
   var iBandWidth = halfLen - thickLen / 2;
   if (iBandWidth < 0) iBandWidth = 0;
   if (hZoneLeftMesh) {
     hZoneLeftMesh.scale.x = iBandWidth > 0 ? iBandWidth / thinLen : 0.001;
     hZoneLeftMesh.position.x = -halfLen + iBandWidth / 2;
+    hZoneLeftMesh.visible = iBandWidth > 0.01;
   }
   if (hZoneRightMesh) {
     hZoneRightMesh.scale.x = iBandWidth > 0 ? iBandWidth / thinLen : 0.001;
     hZoneRightMesh.position.x = halfLen - iBandWidth / 2;
+    hZoneRightMesh.visible = iBandWidth > 0.01;
   }
 
   // SR pulse during Ca²⁺ release
@@ -883,6 +1030,31 @@ function updateVisuals(dt) {
   } else {
     srMesh.material.opacity = 0.2;
   }
+
+  // Motion arrows animation based on rate of length change
+  var targetLength = phys.restingLength - (phys.restingLength - phys.minLength) * (phys.totalXb / myosinHeads.length);
+  if (!phys.atpNormal) targetLength = phys.minLength;
+  var dLength = (targetLength - phys.sarcomereLength); // negative is contracting
+  var arrowPulse = Math.sin(phys.elapsed * 12) * 0.15 + 0.85;
+
+  if (dLength < -0.002 && phys.playing) {
+    // Contracting
+    contractMat.opacity = Math.min(0.8, contractMat.opacity + dt * 4);
+    relaxMat.opacity = Math.max(0, relaxMat.opacity - dt * 4);
+    contractingArrows.position.x = (phys.elapsed * 1.5) % 1.5;
+  } else if (dLength > 0.002 && phys.playing) {
+    // Relaxing
+    relaxMat.opacity = Math.min(0.8, relaxMat.opacity + dt * 4);
+    contractMat.opacity = Math.max(0, contractMat.opacity - dt * 4);
+    relaxingArrows.position.x = -(phys.elapsed * 1.5) % 1.5;
+  } else {
+    // Stationary
+    contractMat.opacity = Math.max(0, contractMat.opacity - dt * 4);
+    relaxMat.opacity = Math.max(0, relaxMat.opacity - dt * 4);
+  }
+  
+  contractingArrows.scale.set(arrowPulse, arrowPulse, arrowPulse);
+  relaxingArrows.scale.set(arrowPulse, arrowPulse, arrowPulse);
 
   // Update labels visibility
   for (var l = 0; l < labelSprites.length; l++) {
