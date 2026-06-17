@@ -277,7 +277,7 @@ var PHASES = {
 var sarcomereGroup, zLineL, zLineR, mLine;
 var thickFilaments = [];   // myosin rods
 var thinFilaments = [];     // actin helices
-var myosinHeads = [];       // {mesh, state, targetThinIdx, restPos, cockedPos}
+var myosinHeads = [];       // {group, head1, head2, neck, headMaterial, state, targetThinIdx, restX, restY, restZ}
 var tropomyosinMeshes = []; // {mesh, thinIdx}
 var calciumIons = [];       // {mesh, vx, vy, vz, phase: 'releasing'|'binding'|'returning'}
 var srMesh, srReleasePos, hZoneMesh, hZoneLeftMesh, hZoneRightMesh;
@@ -343,6 +343,14 @@ function updateCameraPos() {
   var cz = camDist * Math.sin(camPhi) * Math.sin(camTheta);
   camera.position.set(cx, cy, cz);
   camera.lookAt(0, 0, 0);
+}
+
+// Helper to color both heads of a cross-bridge simultaneously
+function setCrossBridgeColor(head, colorHex, emissiveHex) {
+  if (head.headMaterial) {
+    head.headMaterial.color.setHex(colorHex);
+    head.headMaterial.emissive.setHex(emissiveHex);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -413,21 +421,50 @@ function buildSarcomere() {
       var t = h / (headCount - 1); 
       var hx = -thickLen/2 + t * thickLen;
       var angle = (h % 2 === 0) ? 0 : Math.PI;
-      var headY = fy + Math.cos(angle) * 0.38;
-      var headZ = fz;
 
-      var headGeo = new THREE.SphereGeometry(0.16, 10, 8);
-      var headMat = new THREE.MeshPhongMaterial({ color:0xfb923c, emissive:0x4a2a00, shininess:80 });
-      var head = new THREE.Mesh(headGeo, headMat);
-      head.position.set(hx, headY, headZ);
-      sarcomereGroup.add(head);
+      // Group representing the entire cross-bridge (hinge base at (hx, fy, fz))
+      var headGroup = new THREE.Group();
+      headGroup.position.set(hx, fy, fz);
+      sarcomereGroup.add(headGroup);
+
+      // Create the structural neck (cylinder)
+      // Height is 0.22, base of cylinder is at group (0,0,0) by offsetting center to 0.11
+      var neckGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8);
+      var neckMat = new THREE.MeshPhongMaterial({ color: 0x94a3b8, emissive: 0x1e293b, shininess: 30 });
+      var neckMesh = new THREE.Mesh(neckGeo, neckMat);
+      neckMesh.position.set(0, 0.11, 0);
+      headGroup.add(neckMesh);
+
+      // Create the double heads (two adjacent spheres at the end of the neck)
+      var headGeo = new THREE.SphereGeometry(0.08, 10, 8);
+      var headMat = new THREE.MeshPhongMaterial({ color: 0xfb923c, emissive: 0x4a2a00, shininess: 80 });
+      
+      var head1Mesh = new THREE.Mesh(headGeo, headMat);
+      // Offset head1 slightly in X (+0.05) and Z (+0.02) at the top of the neck (Y = 0.22)
+      head1Mesh.position.set(0.05, 0.22, 0.02);
+      headGroup.add(head1Mesh);
+
+      var head2Mesh = new THREE.Mesh(headGeo, headMat);
+      // Offset head2 slightly in X (-0.05) and Z (-0.02) at the top of the neck (Y = 0.22)
+      head2Mesh.position.set(-0.05, 0.22, -0.02);
+      headGroup.add(head2Mesh);
+
+      // Initial rotation: apply angle around local X-axis (0 or Math.PI)
+      // plus the initial cocked angle around Z
+      var sideSign = (hx < 0) ? 1 : -1;
+      headGroup.rotation.x = angle; // Initial orientation (pointing up/down)
+      headGroup.rotation.z = -0.35 * sideSign; // Initial cocked rotation
 
       myosinHeads.push({
-        mesh: head,
+        group: headGroup,
+        head1: head1Mesh,
+        head2: head2Mesh,
+        neck: neckMesh,
+        headMaterial: headMat,
         thickIdx: thickFilaments.length - 1,
         restX: hx,
-        restY: headY,
-        restZ: headZ,
+        restY: fy,
+        restZ: fz,
         angle: angle,
         state: XB_STATES.DETACHED_COCKED,
         targetThinIdx: -1,
@@ -745,19 +782,22 @@ function updateCrossBridges(dt) {
 
   for (var i = 0; i < myosinHeads.length; i++) {
     var head = myosinHeads[i];
+    var sideSign = (head.restX < 0) ? 1 : -1;
+    var angleSign = (head.angle === 0) ? 1 : -1;
 
     switch (head.state) {
       case XB_STATES.DETACHED_COCKED:
         // Head is cocked, waiting for binding site to be exposed
-        // Removed `phys.atpNormal` check so it can bind to actin using its already hydrolyzed ADP+Pi even if ATP is depleted
+        head.group.rotation.x = head.angle;
+        head.group.rotation.z = -0.35 * sideSign;
+        
         if (caActive && Math.random() < dt * 8 * (phys.caConc / 10)) {
           // Attach to nearest thin filament
-          var nearestThin = findNearestThin(head.mesh.position);
+          var nearestThin = findNearestThin(head.group.position);
           if (nearestThin >= 0) {
             head.targetThinIdx = nearestThin;
             head.state = XB_STATES.ATTACHED;
-            head.mesh.material.color.setHex(0x34d399); // green
-            head.mesh.material.emissive.setHex(0x0a3a1a);
+            setCrossBridgeColor(head, 0x34d399, 0x0a3a1a); // green
           }
         }
         break;
@@ -768,77 +808,54 @@ function updateCrossBridges(dt) {
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
           head.state = XB_STATES.POWER_STROKE;
-          head.mesh.material.color.setHex(0xfbbf24); // yellow
-          head.mesh.material.emissive.setHex(0x4a3a00);
+          setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
         }
-        // Move head toward actin binding site
-        var thin = thinFilaments[head.targetThinIdx];
-        if (thin) {
-          var tp = thin.mesh.position;
-          var targetX = tp.x + (head.restX * 0.3);
-          var dx = targetX - head.mesh.position.x;
-          head.mesh.position.x += dx * dt * 5;
-          // Smoothly reach in Y and Z to touch the thin filament
-          head.mesh.position.y += (tp.y - head.mesh.position.y) * dt * 5;
-          head.mesh.position.z += (tp.z - head.mesh.position.z) * dt * 5;
-        }
+        
+        // Smoothly reach in Y-Z (rotate around X) to touch thin filament
+        var sp = Math.min(head.strokeProgress, 1.0);
+        var targetTiltX = head.angle + 0.7 * angleSign;
+        head.group.rotation.x = head.angle + (targetTiltX - head.angle) * sp;
+        head.group.rotation.z = -0.35 * sideSign;
+        
         attachedCount++;
         break;
 
       case XB_STATES.POWER_STROKE:
-        // Head pivots ~45°, pulling actin toward M-line
+        // Head pivots ~45° (rotate around Z), pulling actin toward M-line
         head.strokeProgress += dt * 6;
         var sp = Math.min(head.strokeProgress, 1.0);
-        var pullAmount = sp * 0.4;
         
-        // Correct pull directions!
-        var pullX = (head.restX < 0) ? pullAmount : -pullAmount;
-        var pullY = (head.angle === 0) ? -pullAmount * 0.5 : pullAmount * 0.5;
-        
-        head.mesh.position.x = head.restX + pullX;
-
-        var thin = thinFilaments[head.targetThinIdx];
-        if (thin) {
-          var tp = thin.mesh.position;
-          // Reaching in Z to touch thin filament, and pivot in Y
-          head.mesh.position.y = head.restY + pullY + (tp.y - head.restY) * 0.5;
-          head.mesh.position.z = head.restZ + (tp.z - head.restZ) * 0.8;
-        } else {
-          head.mesh.position.y = head.restY + pullY;
-        }
+        head.group.rotation.x = head.angle + 0.7 * angleSign; // maintain reach
+        head.group.rotation.z = (-0.35 + 0.7 * sp) * sideSign; // pivot pull
 
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
           phys.atpConsumed += 0.5; // ADP + Pi released
           if (phys.atpNormal) {
             head.state = XB_STATES.DETACHING;
-            head.mesh.material.color.setHex(0x22d3ee); // cyan
-            head.mesh.material.emissive.setHex(0x003a3a);
+            setCrossBridgeColor(head, 0x22d3ee, 0x003a3a); // cyan
           } else {
             // Rigor — stuck in attached state
             head.state = XB_STATES.RIGOR;
-            head.mesh.material.color.setHex(0xfb7185); // rose
-            head.mesh.material.emissive.setHex(0x3a0a1a);
+            setCrossBridgeColor(head, 0xfb7185, 0x3a0a1a); // rose
           }
         }
         attachedCount++;
         break;
 
       case XB_STATES.DETACHING:
-        // ATP binds → head detaches from actin
+        // ATP binds → head detaches from actin (retract reach and pull back pivot)
         head.detachProgress += dt * 10;
         var dp = Math.min(head.detachProgress, 1.0);
-        // Move back toward rest position
-        head.mesh.position.x += (head.restX - head.mesh.position.x) * dt * 8;
-        head.mesh.position.y += (head.restY - head.mesh.position.y) * dt * 8;
-        head.mesh.position.z += (head.restZ - head.mesh.position.z) * dt * 8;
+        
+        head.group.rotation.x = head.angle + 0.7 * (1.0 - dp) * angleSign; // retract reach
+        head.group.rotation.z = (+0.35 - 0.7 * dp) * sideSign; // return to cocked pivot
 
         if (head.detachProgress >= 1.0) {
           head.detachProgress = 0;
           head.state = XB_STATES.RECOCKING;
           phys.atpConsumed += 0.5; // ATP hydrolyzed
-          head.mesh.material.color.setHex(0x94a3b8); // gray
-          head.mesh.material.emissive.setHex(0x1a1a1a);
+          setCrossBridgeColor(head, 0x94a3b8, 0x1a1a1a); // gray
         }
         break;
 
@@ -846,25 +863,27 @@ function updateCrossBridges(dt) {
         // Head recocking (ATP hydrolysis, head back to cocked position)
         head.recockProgress += dt * 8;
         var rp = Math.min(head.recockProgress, 1.0);
-        head.mesh.position.x = head.restX;
-        head.mesh.position.y = head.restY + rp * 0.1;
-        head.mesh.position.z = head.restZ;
+        
+        head.group.rotation.x = head.angle;
+        // Do a small wiggle on Z to visually represent the energy charge of recocking
+        head.group.rotation.z = (-0.35 + Math.sin(rp * Math.PI) * 0.08) * sideSign;
 
         if (head.recockProgress >= 1.0) {
           head.recockProgress = 0;
           head.state = XB_STATES.DETACHED_COCKED;
-          head.mesh.material.color.setHex(0xfb923c); // orange
-          head.mesh.material.emissive.setHex(0x4a2a00);
+          setCrossBridgeColor(head, 0xfb923c, 0x4a2a00); // orange
         }
         break;
 
       case XB_STATES.RIGOR:
         // Stuck — no ATP to detach. Heads remain on actin.
+        head.group.rotation.x = head.angle + 0.7 * angleSign;
+        head.group.rotation.z = 0.35 * sideSign;
+        
         if (phys.atpNormal) {
           // ATP restored! Transition to detaching
           head.state = XB_STATES.DETACHING;
-          head.mesh.material.color.setHex(0x22d3ee); // cyan
-          head.mesh.material.emissive.setHex(0x003a3a);
+          setCrossBridgeColor(head, 0x22d3ee, 0x003a3a); // cyan
         }
         attachedCount++;
         break;
@@ -1305,13 +1324,20 @@ function resetSimulation() {
   forceHistory = [];
   // Reset all heads
   for (var i = 0; i < myosinHeads.length; i++) {
-    myosinHeads[i].state = XB_STATES.DETACHED_COCKED;
-    myosinHeads[i].strokeProgress = 0;
-    myosinHeads[i].detachProgress = 0;
-    myosinHeads[i].recockProgress = 0;
-    myosinHeads[i].mesh.position.set(myosinHeads[i].restX, myosinHeads[i].restY, myosinHeads[i].restZ);
-    myosinHeads[i].mesh.material.color.setHex(0xfb923c);
-    myosinHeads[i].mesh.material.emissive.setHex(0x4a2a00);
+    var head = myosinHeads[i];
+    head.state = XB_STATES.DETACHED_COCKED;
+    head.strokeProgress = 0;
+    head.detachProgress = 0;
+    head.recockProgress = 0;
+    
+    // Reset rotations
+    var sideSign = (head.restX < 0) ? 1 : -1;
+    head.group.rotation.x = head.angle;
+    head.group.rotation.z = -0.35 * sideSign;
+    head.group.rotation.y = 0;
+
+    // Reset colors
+    setCrossBridgeColor(head, 0xfb923c, 0x4a2a00);
   }
   // Remove all calcium ions
   for (var j = calciumIons.length - 1; j >= 0; j--) {
@@ -1393,28 +1419,22 @@ function animate() {
     for (var i = 0; i < myosinHeads.length; i++) {
       var head = myosinHeads[i];
       var headRatio = i / myosinHeads.length;
+      var sideSign = (head.restX < 0) ? 1 : -1;
+      var angleSign = (head.angle === 0) ? 1 : -1;
+      
       if (headRatio < stimRatio) {
         head.state = XB_STATES.POWER_STROKE;
-        head.mesh.material.color.setHex(0xfbbf24); // yellow
-        head.mesh.material.emissive.setHex(0x4a3a00);
+        setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
         
-        // Position them in fully stroked state
-        var pullX = (head.restX < 0) ? 0.4 : -0.4;
-        var pullY = (head.angle === 0) ? -0.2 : 0.2;
-        head.mesh.position.x = head.restX + pullX;
-        
-        var thin = thinFilaments[head.targetThinIdx >= 0 ? head.targetThinIdx : findNearestThin(head.mesh.position)];
-        if (thin) {
-          var tp = thin.mesh.position;
-          head.mesh.position.y = head.restY + pullY + (tp.y - head.restY) * 0.5;
-          head.mesh.position.z = head.restZ + (tp.z - head.restZ) * 0.8;
-        }
+        // Rotate them to fully stroked state (reached and pulled)
+        head.group.rotation.x = head.angle + 0.7 * angleSign;
+        head.group.rotation.z = 0.35 * sideSign;
       } else {
         // Detached and cocked
         head.state = XB_STATES.DETACHED_COCKED;
-        head.mesh.material.color.setHex(0xfb923c); // orange
-        head.mesh.material.emissive.setHex(0x4a2a00);
-        head.mesh.position.set(head.restX, head.restY, head.restZ);
+        setCrossBridgeColor(head, 0xfb923c, 0x4a2a00); // orange
+        head.group.rotation.x = head.angle;
+        head.group.rotation.z = -0.35 * sideSign;
       }
     }
     
