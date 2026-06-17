@@ -99,11 +99,11 @@ See `schematic.html` for a full architecture diagram showing the 5-layer design:
 
 ## Tech Stack
 
-- **Three.js r128** (CDN-loaded) — WebGL 3D rendering
-- **Web Audio API** — (not used in this version)
-- **Canvas 2D** — Force trace graph
-- **HTML/CSS** — HUD overlay, sidebar, start screen
-- **Single file** — No build step, no npm, no server
+* **3D Graphics & Rendering**: **Three.js (r128)** is used to render the 3D molecular sarcomere scene. It manages the perspective cameras, directional/hemisphere lighting, Phong materials, and nested Object3D hierarchies for the filaments, structural necks, and oval heads.
+* **UI & Aesthetics**: **HTML5** and **Vanilla CSS3** are used for controls, HUD panels, and start overlays. The layout uses a premium **glassmorphism** design theme (featuring Gaussian backdrop filters, thin borders, and active shadows).
+* **Physics & Logic**: **Vanilla JavaScript (ES6)** drives the state machine loop, delta-time physics update, and mathematical rotation matrices (using `'YXZ'` Euler orders for direct long-axis pivoting).
+* **Data Visualization**: **HTML5 Canvas 2D API** renders the scrolling force trace chart charting active tension in real-time.
+* **Architecture**: **Single-file structure** — No build step, no bundlers, and no local server dependencies required (just double-click to open).
 
 ## How to Use (Teaching)
 
