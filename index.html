@@ -163,6 +163,9 @@
         <div class="stat">Cross-bridges: <span class="stat-val" id="stat-xb">0</span></div>
         <div class="stat">ATP consumed: <span class="stat-val" id="stat-atp">0</span></div>
         <div class="stat">Shortening: <span class="stat-val" id="stat-shorten">0%</span></div>
+        <div class="stat">H-zone: <span class="stat-val" id="stat-hzone">0.40</span> µm</div>
+        <div class="stat">I-band: <span class="stat-val" id="stat-iband">0.30</span> µm</div>
+        <div class="stat">A-band: <span class="stat-val" id="stat-aband">1.60</span> µm</div>
         <div class="stat">Time: <span class="stat-val" id="stat-time">0.0s</span></div>
       </div>
     </div>
@@ -234,7 +237,7 @@ var thinFilaments = [];     // actin helices
 var myosinHeads = [];       // {mesh, state, targetThinIdx, restPos, cockedPos}
 var tropomyosinMeshes = []; // {mesh, thinIdx}
 var calciumIons = [];       // {mesh, vx, vy, vz, phase: 'releasing'|'binding'|'returning'}
-var srMesh, srReleasePos;
+var srMesh, srReleasePos, hZoneMesh, hZoneLeftMesh, hZoneRightMesh;
 var labelSprites = [];
 
 // Cross-bridge cycle states
@@ -337,41 +340,45 @@ function buildSarcomere() {
   var thinLen = 1.0 * scale; // ~1.0µm from each Z-line
 
   // Filament positions — hexagonal arrangement
-  var filamentPos = [
+  // Thin filaments are placed BETWEEN thick filaments so they interdigitate
+  // Thick filament positions
+  var thickPos = [
     [0, 0],
-    [1.2, 0], [-1.2, 0],
-    [0, 1.2], [0, -1.2],
-    [1.0, 1.0], [-1.0, 1.0], [1.0, -1.0], [-1.0, -1.0],
-    [2.0, 0], [-2.0, 0],
-    [0, 2.0], [0, -2.0],
+    [1.5, 0], [-1.5, 0],
+    [0, 1.5], [0, -1.5],
+    [1.2, 1.2], [-1.2, 1.2], [1.2, -1.2], [-1.2, -1.2],
+  ];
+  // Thin filament positions — offset between thick filaments for interdigitation
+  // In real sarcomere, each thin filament sits between 3 thick filaments
+  var thinPos = [
+    [0.75, 0.43], [-0.75, 0.43], [0.75, -0.43], [-0.75, -0.43],
+    [0.0, 0.75], [0.0, -0.75],
+    [1.5, 0.75], [-1.5, 0.75], [1.5, -0.75], [-1.5, -0.75],
+    [0.75, 1.5], [-0.75, 1.5], [0.75, -1.5], [-0.75, -1.5],
   ];
 
-  for (var i = 0; i < filamentPos.length; i++) {
-    var fy = filamentPos[i][0];
-    var fz = filamentPos[i][1];
+  for (var i = 0; i < thickPos.length; i++) {
+    var fy = thickPos[i][0];
+    var fz = thickPos[i][1];
 
-    // Thick filament (myosin rod) — horizontal, centered
+    // Thick filament (myosin rod) — horizontal, centered on M-line
     var thick = new THREE.Mesh(thickGeo, thickMat);
     thick.rotation.z = Math.PI / 2;
     thick.position.set(0, fy, fz);
     sarcomereGroup.add(thick);
-    thickFilaments.push({ mesh: thick, y: fy, z: fz });
+    thickFilaments.push({ mesh: thick, y: fy, z: fz, len: thickLen });
 
     // Myosin heads — protruding at intervals along thick filament
     var headCount = 14;
     for (var h = 0; h < headCount; h++) {
       var t = h / (headCount - 1); // 0 to 1
       var hx = -thickLen/2 + t * thickLen;
-      // Alternate sides for bilateral heads
-      var side = (h % 4 < 2) ? 1 : -1;
-      var sideZ = (h % 2 === 0) ? 0.28 : 0;
-      var sideY = (h % 2 === 0) ? 0 : 0.28;
-      // Alternate up/down around filament
+      // Alternate angles around filament for bilateral heads
       var angle = (h % 4) * (Math.PI / 2);
-      var headY = fy + Math.cos(angle) * 0.3;
-      var headZ = fz + Math.sin(angle) * 0.3;
+      var headY = fy + Math.cos(angle) * 0.25;
+      var headZ = fz + Math.sin(angle) * 0.25;
 
-      var headGeo = new THREE.SphereGeometry(0.12, 8, 6);
+      var headGeo = new THREE.SphereGeometry(0.1, 8, 6);
       var headMat = new THREE.MeshPhongMaterial({ color:0xfb923c, emissive:0x4a2a00, shininess:80 });
       var head = new THREE.Mesh(headGeo, headMat);
       head.position.set(hx, headY, headZ);
@@ -386,46 +393,70 @@ function buildSarcomere() {
         angle: angle,
         state: XB_STATES.DETACHED_COCKED,
         targetThinIdx: -1,
-        strokeProgress: 0,  // 0 to 1 for power stroke animation
+        strokeProgress: 0,
         detachProgress: 0,
         recockProgress: 0,
-        sideY: sideY,
-        sideZ: sideZ,
       });
     }
+  }
 
-    // Thin filaments (actin) — from each Z-line toward center
-    // Left thin filament (from left Z-line, extending right)
-    var thinGeoL = new THREE.CylinderGeometry(0.08, 0.08, thinLen, 6);
-    var thinMatL = new THREE.MeshPhongMaterial({ color:0x34d399, emissive:0x0a2a1a, shininess:30, transparent:true, opacity:0.85 });
-    var thinL = new THREE.Mesh(thinGeoL, thinMatL);
+  // Thin filaments (actin) — interdigitated between thick filaments
+  // Each thin filament is anchored to a Z-line and extends toward center
+  // They sit in the SAME row as thick filaments but offset slightly in Z for visibility
+  var thinGeo = new THREE.CylinderGeometry(0.07, 0.07, thinLen, 6);
+  var thinMat = new THREE.MeshPhongMaterial({ color:0x34d399, emissive:0x0a2a1a, shininess:30, transparent:true, opacity:0.9 });
+
+  for (var j = 0; j < thinPos.length; j++) {
+    var ty = thinPos[j][0];
+    var tz = thinPos[j][1];
+
+    // Left thin filament (from left Z-line, extending right toward center)
+    var thinL = new THREE.Mesh(thinGeo, thinMat);
     thinL.rotation.z = Math.PI / 2;
-    thinL.position.set(-halfLen + thinLen/2, fy * 0.85, fz * 0.85);
+    thinL.position.set(-halfLen + thinLen/2, ty, tz);
     sarcomereGroup.add(thinL);
-    thinFilaments.push({ mesh: thinL, side: 'L', y: fy*0.85, z: fz*0.85, len: thinLen, startX: -halfLen, endX: -halfLen + thinLen });
+    thinFilaments.push({ mesh: thinL, side: 'L', y: ty, z: tz, len: thinLen, startX: -halfLen, endX: -halfLen + thinLen });
 
-    // Right thin filament (from right Z-line, extending left)
-    var thinR = new THREE.Mesh(thinGeoL, thinMatL);
+    // Right thin filament (from right Z-line, extending left toward center)
+    var thinR = new THREE.Mesh(thinGeo, thinMat);
     thinR.rotation.z = Math.PI / 2;
-    thinR.position.set(halfLen - thinLen/2, fy * 0.85, fz * 0.85);
+    thinR.position.set(halfLen - thinLen/2, ty, tz);
     sarcomereGroup.add(thinR);
-    thinFilaments.push({ mesh: thinR, side: 'R', y: fy*0.85, z: fz*0.85, len: thinLen, startX: halfLen - thinLen, endX: halfLen });
+    thinFilaments.push({ mesh: thinR, side: 'R', y: ty, z: tz, len: thinLen, startX: halfLen - thinLen, endX: halfLen });
 
-    // Tropomyosin — thin ribbon alongside actin
-    var tropoGeo = new THREE.CylinderGeometry(0.05, 0.05, thinLen, 5);
+    // Tropomyosin — thin strand alongside each thin filament
+    var tropoGeo = new THREE.CylinderGeometry(0.04, 0.04, thinLen, 5);
     var tropoMat = new THREE.MeshPhongMaterial({ color:0xfb7185, emissive:0x3a0a1a, shininess:20, transparent:true, opacity:0.7 });
     var tropoL = new THREE.Mesh(tropoGeo, tropoMat);
     tropoL.rotation.z = Math.PI / 2;
-    tropoL.position.set(-halfLen + thinLen/2, fy*0.85 + 0.15, fz*0.85);
+    tropoL.position.set(-halfLen + thinLen/2, ty + 0.1, tz);
     sarcomereGroup.add(tropoL);
-    tropomyosinMeshes.push({ mesh: tropoL, thinIdx: thinFilaments.length - 2, side: 'L', baseY: fy*0.85 + 0.15 });
+    tropomyosinMeshes.push({ mesh: tropoL, thinIdx: thinFilaments.length - 2, side: 'L', baseY: ty + 0.1, baseZ: tz });
 
     var tropoR = new THREE.Mesh(tropoGeo, tropoMat);
     tropoR.rotation.z = Math.PI / 2;
-    tropoR.position.set(halfLen - thinLen/2, fy*0.85 + 0.15, fz*0.85);
+    tropoR.position.set(halfLen - thinLen/2, ty + 0.1, tz);
     sarcomereGroup.add(tropoR);
-    tropomyosinMeshes.push({ mesh: tropoR, thinIdx: thinFilaments.length - 1, side: 'R', baseY: fy*0.85 + 0.15 });
+    tropomyosinMeshes.push({ mesh: tropoR, thinIdx: thinFilaments.length - 1, side: 'R', baseY: ty + 0.1, baseZ: tz });
   }
+
+  // H-ZONE indicator — semi-transparent box showing the gap between thin filament tips
+  // This shrinks during contraction — the key visual of sliding filament theory
+  var hZoneMat = new THREE.MeshBasicMaterial({ color:0xfbbf24, transparent:true, opacity:0.08, side: THREE.DoubleSide });
+  var hZoneGeo = new THREE.BoxGeometry(thinLen, 5, 3.5);
+  hZoneMesh = new THREE.Mesh(hZoneGeo, hZoneMat);
+  hZoneMesh.position.set(0, 0, 0);
+  sarcomereGroup.add(hZoneMesh);
+
+  // I-BAND indicators — regions near Z-lines containing only thin filaments
+  var iBandMat = new THREE.MeshBasicMaterial({ color:0x22d3ee, transparent:true, opacity:0.05, side: THREE.DoubleSide });
+  var iBandGeoL = new THREE.BoxGeometry(thinLen, 5, 3.5);
+  hZoneLeftMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
+  hZoneLeftMesh.position.set(-halfLen + thinLen/2, 0, 0);
+  sarcomereGroup.add(hZoneLeftMesh);
+  hZoneRightMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
+  hZoneRightMesh.position.set(halfLen - thinLen/2, 0, 0);
+  sarcomereGroup.add(hZoneRightMesh);
 
   // Create labels
   createLabels(halfLen);
@@ -451,9 +482,12 @@ function createLabels(halfLen) {
     { text: 'Z-line', x: -halfLen - 0.8, y: 3.8, z: 0 },
     { text: 'Z-line', x: halfLen + 0.8, y: 3.8, z: 0 },
     { text: 'M-line', x: 0, y: 3.8, z: 0 },
-    { text: 'Myosin\n(thick)', x: 0, y: -2.5, z: 2.5 },
-    { text: 'Actin\n(thin)', x: -halfLen + 1, y: -2.5, z: -2.5 },
-    { text: 'Tropomyosin', x: halfLen - 1, y: -1.5, z: -2.5 },
+    { text: 'Myosin\n(thick)', x: 0, y: -3, z: 3 },
+    { text: 'Actin\n(thin)', x: -halfLen + 1.5, y: -3, z: -3 },
+    { text: 'H-zone', x: 0, y: 3.2, z: 3.5 },
+    { text: 'I-band', x: -halfLen + 1, y: 3.2, z: -3.5 },
+    { text: 'I-band', x: halfLen - 1, y: 3.2, z: -3.5 },
+    { text: 'A-band', x: 0, y: -3.5, z: 0 },
   ];
   for (var i = 0; i < labels.length; i++) {
     var sprite = makeTextSprite(labels[i].text);
@@ -771,20 +805,28 @@ function updatePhysiology(dt) {
 function updateVisuals(dt) {
   var scale = 4.0;
   var halfLen = (phys.sarcomereLength * scale) / 2;
+  var thickLen = 1.6 * scale; // A-band stays constant
+  var thinLen = 1.0 * scale;
 
-  // Move Z-lines
+  // Move Z-lines (they move inward during contraction)
   zLineL.position.x = -halfLen;
   zLineR.position.x = halfLen;
 
-  // Move thin filaments (they're anchored to Z-lines, slide toward center)
-  var thinLen = 1.0 * scale;
+  // Thick filaments (myosin) stay centered — A-band does NOT change
+  // (already centered at x=0, no need to move)
+
+  // Thin filaments (actin) slide inward — anchored to Z-lines
+  // As sarcomere shortens, Z-lines move inward, pulling thin filaments deeper
+  // into the thick filament array → H-zone shrinks, I-band shrinks
   for (var i = 0; i < thinFilaments.length; i++) {
     var tf = thinFilaments[i];
     if (tf.side === 'L') {
+      // Left thin filament: anchored at left Z-line, tip extends right
       tf.mesh.position.x = -halfLen + thinLen / 2;
       tf.startX = -halfLen;
       tf.endX = -halfLen + thinLen;
     } else {
+      // Right thin filament: anchored at right Z-line, tip extends left
       tf.mesh.position.x = halfLen - thinLen / 2;
       tf.startX = halfLen - thinLen;
       tf.endX = halfLen;
@@ -800,10 +842,35 @@ function updateVisuals(dt) {
     }
     // Tropomyosin shifts away from actin when Ca²⁺ binds troponin
     var caRatio = Math.min(phys.caConc / 5, 1);
-    tp.mesh.position.y = tp.baseY + caRatio * 0.25;
+    tp.mesh.position.y = tp.baseY + caRatio * 0.2;
     // Color shift — more orange when shifted
     var r = 0xfb, g = Math.round(0x71 + caRatio * 0x20), b = Math.round(0x85 - caRatio * 0x40);
     tp.mesh.material.color.setRGB(r/255, g/255, b/255);
+  }
+
+  // H-ZONE: gap between the tips of left and right thin filaments
+  // At rest: H-zone = sarcomereLength - 2*thinLen
+  // During contraction, thin filament tips slide deeper → H-zone shrinks
+  // H-zone = (halfLen - thinLen) - (-halfLen + thinLen) = 2*(halfLen - thinLen)
+  var hZoneWidth = 2 * (halfLen - thinLen);
+  if (hZoneWidth < 0) hZoneWidth = 0; // fully overlapped
+  if (hZoneMesh) {
+    hZoneMesh.scale.x = hZoneWidth > 0 ? hZoneWidth / thinLen : 0.001;
+    hZoneMesh.position.x = 0;
+  }
+
+  // I-BAND: region near each Z-line containing only thin filaments (no thick)
+  // I-band = halfLen - thickLen/2
+  // As sarcomere shortens, I-band shrinks (Z-lines move closer to thick filament ends)
+  var iBandWidth = halfLen - thickLen / 2;
+  if (iBandWidth < 0) iBandWidth = 0;
+  if (hZoneLeftMesh) {
+    hZoneLeftMesh.scale.x = iBandWidth > 0 ? iBandWidth / thinLen : 0.001;
+    hZoneLeftMesh.position.x = -halfLen + iBandWidth / 2;
+  }
+  if (hZoneRightMesh) {
+    hZoneRightMesh.scale.x = iBandWidth > 0 ? iBandWidth / thinLen : 0.001;
+    hZoneRightMesh.position.x = halfLen - iBandWidth / 2;
   }
 
   // SR pulse during Ca²⁺ release
@@ -899,6 +966,26 @@ function updateHUD() {
   document.getElementById('stat-atp').textContent = phys.atpConsumed.toFixed(0);
   var shortenPct = ((phys.restingLength - phys.sarcomereLength) / phys.restingLength * 100).toFixed(1);
   document.getElementById('stat-shorten').textContent = shortenPct + '%';
+
+  // Band dimensions (µm) — key teaching readouts
+  var scale = 4.0;
+  var halfLen = (phys.sarcomereLength * scale) / 2 / scale; // back to µm
+  var thinLenUm = 1.0; // thin filament length in µm
+  var thickLenUm = 1.6; // thick filament length in µm (A-band, constant)
+
+  // H-zone = sarcomereLength - 2*thinLen (gap between thin filament tips)
+  var hZoneUm = phys.sarcomereLength - 2 * thinLenUm;
+  if (hZoneUm < 0) hZoneUm = 0;
+  document.getElementById('stat-hzone').textContent = hZoneUm.toFixed(2);
+
+  // I-band = (sarcomereLength - thickLen) / 2 (thin-only region per side)
+  var iBandUm = (phys.sarcomereLength - thickLenUm) / 2;
+  if (iBandUm < 0) iBandUm = 0;
+  document.getElementById('stat-iband').textContent = iBandUm.toFixed(2);
+
+  // A-band = thick filament length (constant — does not change!)
+  document.getElementById('stat-aband').textContent = thickLenUm.toFixed(2);
+
   document.getElementById('stat-time').textContent = phys.elapsed.toFixed(1) + 's';
 }
 
