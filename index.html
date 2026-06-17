@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sarcomere — Muscle Contraction Simulator</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0e0e10; font-family:'Segoe UI',system-ui,sans-serif; color:#e6e6e6; overflow:hidden; }
+  canvas { display:block; }
+  #app { display:flex; height:100vh; }
+  #sidebar {
+    width:280px; min-width:280px; background:#18181b; border-right:1px solid #2a2a30;
+    padding:16px; overflow-y:auto;
+  }
+  #sidebar h2 { font-size:14px; font-weight:700; margin-bottom:12px; color:#e6e6e6; letter-spacing:.5px; }
+  #sidebar h3 { font-size:11px; font-weight:600; margin-bottom:8px; margin-top:18px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; }
+  .ctrl-group { margin-bottom:14px; padding:12px; background:#0e0e10; border-radius:8px; border:1px solid #2a2a30; }
+  .ctrl-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .ctrl-label { font-size:12px; color:#e6e6e6; }
+  .ctrl-value { font-size:12px; color:#22d3ee; font-weight:600; font-family:'Courier New',monospace; }
+  input[type=range] { width:100%; -webkit-appearance:none; appearance:none; height:6px; background:#2a2a30; border-radius:3px; outline:none; cursor:pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#22d3ee; cursor:pointer; }
+  input[type=range]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#22d3ee; cursor:pointer; border:none; }
+  button { background:#2a2a30; color:#e6e6e6; border:1px solid #3a3a40; padding:8px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:background .2s; font-family:inherit; }
+  button:hover { background:#34d399; color:#0e0e10; border-color:#34d399; }
+  button.active { background:#22d3ee; color:#0e0e10; border-color:#22d3ee; font-weight:600; }
+  button.big { width:100%; padding:10px; font-size:13px; margin-top:6px; }
+  .toggle-row { display:flex; gap:6px; }
+  .toggle-row button { flex:1; padding:6px 8px; font-size:11px; }
+  .hint { font-size:10px; color:#64748b; margin-top:4px; line-height:1.4; }
+  #main { flex:1; position:relative; }
+  #canvas-container { width:100%; height:100%; }
+  #hud { position:absolute; top:0; left:0; right:0; pointer-events:none; padding:16px; }
+  .hud-top { display:flex; justify-content:space-between; align-items:flex-start; }
+  .hud-panel { background:rgba(14,14,16,.85); border:1px solid #2a2a30; border-radius:8px; padding:10px 14px; }
+  .hud-panel h4 { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .hud-panel .val { font-size:22px; font-weight:700; font-family:'Courier New',monospace; color:#22d3ee; }
+  .hud-panel .unit { font-size:12px; color:#94a3b8; margin-left:4px; }
+  .phase-display { text-align:center; }
+  .phase-display .phase-name { font-size:18px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:2px; }
+  .phase-display .phase-desc { font-size:11px; color:#94a3b8; margin-top:4px; }
+  .hud-bottom { position:absolute; bottom:0; left:0; right:0; padding:16px; pointer-events:none; }
+  #force-canvas { width:100%; height:80px; background:rgba(14,14,16,.85); border:1px solid #2a2a30; border-radius:8px; }
+  .force-label { font-size:10px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .stats-row { display:flex; gap:12px; margin-top:8px; }
+  .stat { background:rgba(14,14,16,.85); border:1px solid #2a2a30; border-radius:6px; padding:6px 10px; font-size:11px; }
+  .stat .stat-val { color:#fbbf24; font-weight:600; font-family:'Courier New',monospace; }
+  #start-overlay { position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(14,14,16,.95); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; }
+  #start-overlay h1 { font-size:32px; font-weight:700; color:#e6e6e6; margin-bottom:8px; }
+  #start-overlay p { font-size:14px; color:#94a3b8; max-width:480px; text-align:center; margin-bottom:24px; line-height:1.6; }
+  #start-overlay .controls-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; max-width:400px; margin-bottom:24px; font-size:12px; color:#94a3b8; }
+  #start-overlay .controls-grid div { background:#18181b; padding:8px 12px; border-radius:6px; border:1px solid #2a2a30; }
+  #start-overlay .controls-grid b { color:#22d3ee; }
+  .tip-bar { position:absolute; bottom:110px; left:50%; transform:translateX(-50%); background:rgba(14,14,16,.9); border:1px solid #34d399; border-radius:8px; padding:8px 16px; font-size:12px; color:#34d399; pointer-events:none; opacity:0; transition:opacity .3s; max-width:500px; text-align:center; }
+  .tip-bar.show { opacity:1; }
+  .ref-section { margin-top:auto; padding-top:12px; border-top:1px solid #2a2a30; }
+  .ref-section details summary { font-size:10px; color:#64748b; cursor:pointer; }
+  .ref-section p { font-size:10px; color:#64748b; margin-top:6px; line-height:1.5; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <h2>🧬 Sarcomere Sim</h2>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <span class="ctrl-label">Stimulation</span>
+        <span class="ctrl-value" id="stim-val">0%</span>
+      </div>
+      <input type="range" id="stim-slider" min="0" max="100" value="0">
+      <div class="hint">Action potential → Ca²⁺ release from SR. Increase to trigger contraction.</div>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>ATP</h3>
+      <div class="toggle-row">
+        <button id="atp-normal" class="active">Normal</button>
+        <button id="atp-depleted">Depleted</button>
+      </div>
+      <div class="hint">Depleted ATP → rigor state (heads stuck attached, no relaxation)</div>
+    </div>
+
+    <div class="ctrl-group">
+      <div class="ctrl-row">
+        <span class="ctrl-label">Sim Speed</span>
+        <span class="ctrl-value" id="speed-val">1.0×</span>
+      </div>
+      <input type="range" id="speed-slider" min="0" max="300" value="100">
+      <div class="hint">Slow-mo for teaching (0.1×) to fast (3.0×)</div>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>Playback</h3>
+      <div class="toggle-row">
+        <button id="play-btn" class="active">▶ Play</button>
+        <button id="pause-btn">⏸ Pause</button>
+      </div>
+      <button id="reset-btn" class="big">↺ Reset</button>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>Camera</h3>
+      <div class="toggle-row">
+        <button id="orbit-btn" class="active">Orbit</button>
+        <button id="fixed-btn">Fixed</button>
+      </div>
+      <div class="hint">Drag to rotate · Scroll to zoom</div>
+    </div>
+
+    <div class="ctrl-group">
+      <h3>View</h3>
+      <div class="toggle-row">
+        <button id="label-btn" class="active">Labels</button>
+        <button id="nolabel-btn">No Labels</button>
+      </div>
+    </div>
+
+    <div class="ref-section">
+      <details>
+        <summary>References & Physiology</summary>
+        <p><b>Sliding filament theory</b> — Huxley & Hanson (1954). Actin filaments slide toward M-line via myosin head power strokes. Sarcomere shortens 2.2→1.6 µm.</p>
+        <p><b>Cross-bridge cycle</b> — 5 steps: ① Attach (myosin binds actin) ② Power stroke (Pi release, head pivots ~45°) ③ ADP release ④ ATP binding → detach ⑤ ATP hydrolysis → recock head.</p>
+        <p><b>Ca²⁺ dynamics</b> — AP triggers SR release (~10ms), [Ca²⁺] rises from 0.1→10 µmol/L. SERCA pump reuptake (~100ms). Troponin C binds Ca²⁺ → tropomyosin shifts → sites exposed.</p>
+        <p><b>Rigor</b> — ATP depleted: heads remain attached (post-power-stroke, no ATP to detach). Muscle stiff.</p>
+        <p>References: Guyton & Hall Textbook of Medical Physiology, 14th ed. Ch. 6-7.</p>
+      </details>
+    </div>
+  </div>
+
+  <!-- Main 3D Area -->
+  <div id="main">
+    <div id="canvas-container"></div>
+    <div id="hud">
+      <div class="hud-top">
+        <div style="display:flex; gap:10px;">
+          <div class="hud-panel">
+            <h4>Sarcomere Length</h4>
+            <span class="val" id="hud-length">2.20</span><span class="unit">µm</span>
+          </div>
+          <div class="hud-panel">
+            <h4>[Ca²⁺]</h4>
+            <span class="val" id="hud-ca" style="color:#fbbf24;">0.10</span><span class="unit">µmol/L</span>
+          </div>
+          <div class="hud-panel">
+            <h4>Force</h4>
+            <span class="val" id="hud-force" style="color:#fb7185;">0.0</span><span class="unit">mN</span>
+          </div>
+        </div>
+        <div class="hud-panel phase-display">
+          <h4>Phase</h4>
+          <div class="phase-name" id="hud-phase">RESTING</div>
+          <div class="phase-desc" id="hud-phase-desc">Tropomyosin blocks sites</div>
+        </div>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <div class="force-label">Force Trace (mN vs time)</div>
+      <canvas id="force-canvas"></canvas>
+      <div class="stats-row">
+        <div class="stat">Cross-bridges: <span class="stat-val" id="stat-xb">0</span></div>
+        <div class="stat">ATP consumed: <span class="stat-val" id="stat-atp">0</span></div>
+        <div class="stat">Shortening: <span class="stat-val" id="stat-shorten">0%</span></div>
+        <div class="stat">Time: <span class="stat-val" id="stat-time">0.0s</span></div>
+      </div>
+    </div>
+    <div class="tip-bar" id="tip-bar"></div>
+  </div>
+
+  <!-- Start Overlay -->
+  <div id="start-overlay">
+    <h1>🧬 Sarcomere Contraction Simulator</h1>
+    <p>3D visualization of the sliding filament theory. Stimulate the muscle fiber, watch calcium release, cross-bridge cycling, and sarcomere shortening in real-time.</p>
+    <div class="controls-grid">
+      <div><b>Stimulation</b> — Drag slider to fire AP</div>
+      <div><b>Camera</b> — Click-drag to orbit</div>
+      <div><b>ATP toggle</b> — Normal vs rigor</div>
+      <div><b>Speed</b> — Slow-mo for teaching</div>
+    </div>
+    <button id="start-btn" class="big" style="max-width:200px; font-size:16px; padding:14px; background:#34d399; color:#0e0e10; border-color:#34d399; font-weight:700;">▶ Start Simulation</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// MUSCLE CONTRACTION SIMULATOR — Three.js
+// Sliding filament theory, cross-bridge cycling, Ca²⁺ dynamics
+// ═══════════════════════════════════════════════════════════════
+
+var renderer, scene, camera, container;
+var clock;
+var orbitAngle = 0, orbitEnabled = true, isDragging = false;
+var lastMouseX = 0, lastMouseY = 0, camTheta = 0.3, camPhi = 0.4, camDist = 18;
+var showLabels = true;
+
+// Physiology state
+var phys = {
+  stimLevel: 0,         // 0-100 stimulation slider
+  caConc: 0.1,          // [Ca²⁺] µmol/L (resting ~0.1, peak ~10)
+  sarcomereLength: 2.2, // µm
+  restingLength: 2.2,
+  minLength: 1.6,
+  force: 0,             // mN
+  atpNormal: true,
+  atpConsumed: 0,
+  simSpeed: 1.0,
+  playing: true,
+  phase: 'RESTING',
+  phaseDesc: 'Tropomyosin blocks sites',
+  totalXb: 0,
+  elapsed: 0,
+};
+
+// Phase definitions
+var PHASES = {
+  RESTING:      { name:'RESTING',      desc:'Tropomyosin blocks sites',          color:0x94a3b8 },
+  EXCITATION:   { name:'EXCITATION',   desc:'Action potential arrives',         color:0x22d3ee },
+  CA_RELEASE:   { name:'Ca²⁺ RELEASE', desc:'SR releases calcium ions',          color:0xfbbf24 },
+  CROSSBRIDGE: { name:'CROSS-BRIDGE', desc:'Myosin heads cycling',             color:0x34d399 },
+  CONTRACTION:  { name:'CONTRACTION',  desc:'Sarcomere shortening',             color:0xfb7185 },
+  RELAXATION:   { name:'RELAXATION',   desc:'Ca²⁺ pumped back to SR',           color:0x22d3ee },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SCENE OBJECTS
+// ═══════════════════════════════════════════════════════════════
+
+var sarcomereGroup, zLineL, zLineR, mLine;
+var thickFilaments = [];   // myosin rods
+var thinFilaments = [];     // actin helices
+var myosinHeads = [];       // {mesh, state, targetThinIdx, restPos, cockedPos}
+var tropomyosinMeshes = []; // {mesh, thinIdx}
+var calciumIons = [];       // {mesh, vx, vy, vz, phase: 'releasing'|'binding'|'returning'}
+var srMesh, srReleasePos;
+var labelSprites = [];
+
+// Cross-bridge cycle states
+var XB_STATES = {
+  DETACHED_COCKED: 0,  // ready, ADP+Pi bound, head cocked
+  ATTACHED: 1,          // bound to actin
+  POWER_STROKE: 2,      // pivoting, pulling actin
+  DETACHING: 3,          // ATP bound, releasing
+  RECOCKING: 4,          // ATP hydrolyzed, head recocking
+  RIGOR: 5,            // stuck (ATP depleted)
+};
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+function init() {
+  container = document.getElementById('canvas-container');
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x0e0e10);
+  container.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x0e0e10, 25, 50);
+
+  camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 100);
+  updateCameraPos();
+
+  clock = new THREE.Clock();
+
+  // Lighting
+  var hemi = new THREE.HemisphereLight(0x4a90d9, 0x1a1a2e, 0.6);
+  scene.add(hemi);
+
+  var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(8, 12, 6);
+  scene.add(dirLight);
+
+  var fillLight = new THREE.DirectionalLight(0x22d3ee, 0.3);
+  fillLight.position.set(-5, 3, -8);
+  scene.add(fillLight);
+
+  // Build sarcomere
+  buildSarcomere();
+  buildSarcoplasmicReticulum();
+
+  // Event handlers
+  setupControls();
+
+  window.addEventListener('resize', onResize);
+}
+
+function updateCameraPos() {
+  var cx = camDist * Math.sin(camPhi) * Math.cos(camTheta);
+  var cy = camDist * Math.cos(camPhi);
+  var cz = camDist * Math.sin(camPhi) * Math.sin(camTheta);
+  camera.position.set(cx, cy, cz);
+  camera.lookAt(0, 0, 0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BUILD SARCOMERE STRUCTURE
+// ═══════════════════════════════════════════════════════════════
+
+function buildSarcomere() {
+  sarcomereGroup = new THREE.Group();
+  scene.add(sarcomereGroup);
+
+  // Scale: 1 µm = 4 units. Sarcomere resting 2.2µm = 8.8 units
+  var scale = 4.0;
+  var halfLen = (phys.restingLength * scale) / 2; // 4.4 units
+
+  // Z-LINES — dense vertical plates
+  var zGeo = new THREE.BoxGeometry(0.3, 6, 4);
+  var zMat = new THREE.MeshPhongMaterial({ color:0xe6e6e6, emissive:0x333333, shininess:60 });
+
+  zLineL = new THREE.Mesh(zGeo, zMat);
+  zLineL.position.x = -halfLen;
+  sarcomereGroup.add(zLineL);
+
+  zLineR = new THREE.Mesh(zGeo, zMat);
+  zLineR.position.x = halfLen;
+  sarcomereGroup.add(zLineR);
+
+  // M-LINE — central protein structure
+  var mGeo = new THREE.BoxGeometry(0.25, 5, 3);
+  var mMat = new THREE.MeshPhongMaterial({ color:0xa78bfa, emissive:0x2a1a4a, shininess:40 });
+  mLine = new THREE.Mesh(mGeo, mMat);
+  mLine.position.x = 0;
+  sarcomereGroup.add(mLine);
+
+  // THICK FILAMENTS (MYOSIN) — rods centered on M-line
+  var thickLen = 1.6 * scale; // 1.6µm
+  var thickGeo = new THREE.CylinderGeometry(0.18, 0.18, thickLen, 8);
+  var thickMat = new THREE.MeshPhongMaterial({ color:0x4a90d9, emissive:0x0a1929, shininess:50 });
+
+  // Thin filaments anchored to Z-lines, extending toward center
+  var thinLen = 1.0 * scale; // ~1.0µm from each Z-line
+
+  // Filament positions — hexagonal arrangement
+  var filamentPos = [
+    [0, 0],
+    [1.2, 0], [-1.2, 0],
+    [0, 1.2], [0, -1.2],
+    [1.0, 1.0], [-1.0, 1.0], [1.0, -1.0], [-1.0, -1.0],
+    [2.0, 0], [-2.0, 0],
+    [0, 2.0], [0, -2.0],
+  ];
+
+  for (var i = 0; i < filamentPos.length; i++) {
+    var fy = filamentPos[i][0];
+    var fz = filamentPos[i][1];
+
+    // Thick filament (myosin rod) — horizontal, centered
+    var thick = new THREE.Mesh(thickGeo, thickMat);
+    thick.rotation.z = Math.PI / 2;
+    thick.position.set(0, fy, fz);
+    sarcomereGroup.add(thick);
+    thickFilaments.push({ mesh: thick, y: fy, z: fz });
+
+    // Myosin heads — protruding at intervals along thick filament
+    var headCount = 14;
+    for (var h = 0; h < headCount; h++) {
+      var t = h / (headCount - 1); // 0 to 1
+      var hx = -thickLen/2 + t * thickLen;
+      // Alternate sides for bilateral heads
+      var side = (h % 4 < 2) ? 1 : -1;
+      var sideZ = (h % 2 === 0) ? 0.28 : 0;
+      var sideY = (h % 2 === 0) ? 0 : 0.28;
+      // Alternate up/down around filament
+      var angle = (h % 4) * (Math.PI / 2);
+      var headY = fy + Math.cos(angle) * 0.3;
+      var headZ = fz + Math.sin(angle) * 0.3;
+
+      var headGeo = new THREE.SphereGeometry(0.12, 8, 6);
+      var headMat = new THREE.MeshPhongMaterial({ color:0xfb923c, emissive:0x4a2a00, shininess:80 });
+      var head = new THREE.Mesh(headGeo, headMat);
+      head.position.set(hx, headY, headZ);
+      sarcomereGroup.add(head);
+
+      myosinHeads.push({
+        mesh: head,
+        thickIdx: thickFilaments.length - 1,
+        restX: hx,
+        restY: headY,
+        restZ: headZ,
+        angle: angle,
+        state: XB_STATES.DETACHED_COCKED,
+        targetThinIdx: -1,
+        strokeProgress: 0,  // 0 to 1 for power stroke animation
+        detachProgress: 0,
+        recockProgress: 0,
+        sideY: sideY,
+        sideZ: sideZ,
+      });
+    }
+
+    // Thin filaments (actin) — from each Z-line toward center
+    // Left thin filament (from left Z-line, extending right)
+    var thinGeoL = new THREE.CylinderGeometry(0.08, 0.08, thinLen, 6);
+    var thinMatL = new THREE.MeshPhongMaterial({ color:0x34d399, emissive:0x0a2a1a, shininess:30, transparent:true, opacity:0.85 });
+    var thinL = new THREE.Mesh(thinGeoL, thinMatL);
+    thinL.rotation.z = Math.PI / 2;
+    thinL.position.set(-halfLen + thinLen/2, fy * 0.85, fz * 0.85);
+    sarcomereGroup.add(thinL);
+    thinFilaments.push({ mesh: thinL, side: 'L', y: fy*0.85, z: fz*0.85, len: thinLen, startX: -halfLen, endX: -halfLen + thinLen });
+
+    // Right thin filament (from right Z-line, extending left)
+    var thinR = new THREE.Mesh(thinGeoL, thinMatL);
+    thinR.rotation.z = Math.PI / 2;
+    thinR.position.set(halfLen - thinLen/2, fy * 0.85, fz * 0.85);
+    sarcomereGroup.add(thinR);
+    thinFilaments.push({ mesh: thinR, side: 'R', y: fy*0.85, z: fz*0.85, len: thinLen, startX: halfLen - thinLen, endX: halfLen });
+
+    // Tropomyosin — thin ribbon alongside actin
+    var tropoGeo = new THREE.CylinderGeometry(0.05, 0.05, thinLen, 5);
+    var tropoMat = new THREE.MeshPhongMaterial({ color:0xfb7185, emissive:0x3a0a1a, shininess:20, transparent:true, opacity:0.7 });
+    var tropoL = new THREE.Mesh(tropoGeo, tropoMat);
+    tropoL.rotation.z = Math.PI / 2;
+    tropoL.position.set(-halfLen + thinLen/2, fy*0.85 + 0.15, fz*0.85);
+    sarcomereGroup.add(tropoL);
+    tropomyosinMeshes.push({ mesh: tropoL, thinIdx: thinFilaments.length - 2, side: 'L', baseY: fy*0.85 + 0.15 });
+
+    var tropoR = new THREE.Mesh(tropoGeo, tropoMat);
+    tropoR.rotation.z = Math.PI / 2;
+    tropoR.position.set(halfLen - thinLen/2, fy*0.85 + 0.15, fz*0.85);
+    sarcomereGroup.add(tropoR);
+    tropomyosinMeshes.push({ mesh: tropoR, thinIdx: thinFilaments.length - 1, side: 'R', baseY: fy*0.85 + 0.15 });
+  }
+
+  // Create labels
+  createLabels(halfLen);
+}
+
+function buildSarcoplasmicReticulum() {
+  // SR represented as a semi-transparent structure above/below sarcomere
+  var srGeo = new THREE.TorusGeometry(5, 0.4, 8, 32);
+  var srMat = new THREE.MeshPhongMaterial({ color:0x6366f1, emissive:0x1a1a4a, transparent:true, opacity:0.25, shininess:20 });
+  srMesh = new THREE.Mesh(srGeo, srMat);
+  srMesh.rotation.x = Math.PI / 2;
+  srMesh.position.y = -4;
+  scene.add(srMesh);
+  srReleasePos = new THREE.Vector3(0, -3, 0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LABELS (text sprites)
+// ═══════════════════════════════════════════════════════════════
+
+function createLabels(halfLen) {
+  var labels = [
+    { text: 'Z-line', x: -halfLen - 0.8, y: 3.8, z: 0 },
+    { text: 'Z-line', x: halfLen + 0.8, y: 3.8, z: 0 },
+    { text: 'M-line', x: 0, y: 3.8, z: 0 },
+    { text: 'Myosin\n(thick)', x: 0, y: -2.5, z: 2.5 },
+    { text: 'Actin\n(thin)', x: -halfLen + 1, y: -2.5, z: -2.5 },
+    { text: 'Tropomyosin', x: halfLen - 1, y: -1.5, z: -2.5 },
+  ];
+  for (var i = 0; i < labels.length; i++) {
+    var sprite = makeTextSprite(labels[i].text);
+    sprite.position.set(labels[i].x, labels[i].y, labels[i].z);
+    sprite.scale.set(2.5, 1.25, 1);
+    scene.add(sprite);
+    labelSprites.push(sprite);
+  }
+}
+
+function makeTextSprite(text) {
+  var canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  var ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(14,14,16,0.8)';
+  ctx.fillRect(0, 0, 256, 128);
+  ctx.font = 'bold 20px Segoe UI';
+  ctx.fillStyle = '#22d3ee';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  var lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], 128, 64 + (i - (lines.length-1)/2) * 22);
+  }
+  var texture = new THREE.Texture(canvas);
+  texture.needsUpdate = true;
+  var mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+  return new THREE.Sprite(mat);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALCIUM IONS
+// ═══════════════════════════════════════════════════════════════
+
+function spawnCalciumIon() {
+  var geo = new THREE.SphereGeometry(0.1, 6, 4);
+  var mat = new THREE.MeshPhongMaterial({ color:0xfbbf24, emissive:0x8a6a00, shininess:100 });
+  var ion = new THREE.Mesh(geo, mat);
+  ion.position.copy(srReleasePos);
+  ion.position.x += (Math.random() - 0.5) * 3;
+  ion.position.z += (Math.random() - 0.5) * 3;
+
+  var ionObj = {
+    mesh: ion,
+    vx: (Math.random() - 0.5) * 2,
+    vy: Math.random() * 4 + 2,
+    vz: (Math.random() - 0.5) * 2,
+    phase: 'releasing',
+    age: 0,
+    bindingTarget: null,
+  };
+  calciumIons.push(ionObj);
+  scene.add(ion);
+  return ionObj;
+}
+
+function updateCalciumIons(dt) {
+  var caTarget = phys.caConc;
+  var desiredCount = Math.round(caTarget * 2); // scale ions to [Ca²⁺]
+
+  // Spawn ions when Ca²⁺ is high and releasing
+  if (phys.phase === 'CA_RELEASE' || phys.phase === 'CROSSBRIDGE' || phys.phase === 'CONTRACTION') {
+    while (calciumIons.length < desiredCount && Math.random() < 0.3) {
+      spawnCalciumIon();
+    }
+  }
+
+  for (var i = calciumIons.length - 1; i >= 0; i--) {
+    var ion = calciumIons[i];
+    ion.age += dt;
+
+    if (ion.phase === 'releasing') {
+      ion.mesh.position.x += ion.vx * dt;
+      ion.mesh.position.y += ion.vy * dt;
+      ion.mesh.position.z += ion.vz * dt;
+      ion.vy -= 5 * dt; // gravity-like
+      // Move toward sarcomere center
+      ion.mesh.position.x *= 0.98;
+      if (ion.age > 0.5 && Math.random() < 0.05) {
+        ion.phase = 'binding';
+      }
+    } else if (ion.phase === 'binding') {
+      // Drift toward a thin filament / tropomyosin
+      if (!ion.bindingTarget && thinFilaments.length > 0) {
+        var idx = Math.floor(Math.random() * thinFilaments.length);
+        ion.bindingTarget = thinFilaments[idx];
+      }
+      if (ion.bindingTarget) {
+        var tp = ion.bindingTarget.mesh.position;
+        ion.mesh.position.x += (tp.x - ion.mesh.position.x) * dt * 3;
+        ion.mesh.position.y += (tp.y - ion.mesh.position.y) * dt * 3;
+        ion.mesh.position.z += (tp.z - ion.mesh.position.z) * dt * 3;
+      }
+      if (ion.age > 1.5) {
+        ion.phase = 'returning';
+        ion.vx = (srReleasePos.x - ion.mesh.position.x) * 0.5;
+        ion.vy = (srReleasePos.y - ion.mesh.position.y) * 0.5;
+      }
+    } else if (ion.phase === 'returning') {
+      ion.mesh.position.x += ion.vx * dt;
+      ion.mesh.position.y += ion.vy * dt;
+      ion.mesh.position.z += ion.vz * dt * 0.5;
+      // Fade out as Ca²⁺ drops
+      if (phys.caConc < 0.5) {
+        ion.mesh.material.opacity = Math.max(0, ion.mesh.material.opacity - dt);
+        if (ion.mesh.material.opacity <= 0) {
+          scene.remove(ion.mesh);
+          calciumIons.splice(i, 1);
+          continue;
+        }
+      }
+    }
+  }
+
+  // Remove excess ions if Ca²⁺ is dropping
+  if (phys.caConc < 0.3 && calciumIons.length > 5) {
+    for (var j = calciumIons.length - 1; j >= 0 && j > 3; j--) {
+      if (calciumIons[j].phase === 'returning') {
+        scene.remove(calciumIons[j].mesh);
+        calciumIons.splice(j, 1);
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CROSS-BRIDGE CYCLE STATE MACHINE
+// ═══════════════════════════════════════════════════════════════
+
+function updateCrossBridges(dt) {
+  var caActive = phys.caConc > 0.8; // Ca²⁺ threshold for site exposure
+  var attachedCount = 0;
+
+  for (var i = 0; i < myosinHeads.length; i++) {
+    var head = myosinHeads[i];
+
+    switch (head.state) {
+      case XB_STATES.DETACHED_COCKED:
+        // Head is cocked, waiting for binding site to be exposed
+        if (caActive && phys.atpNormal && Math.random() < dt * 8 * (phys.caConc / 10)) {
+          // Attach to nearest thin filament
+          var nearestThin = findNearestThin(head.mesh.position);
+          if (nearestThin >= 0) {
+            head.targetThinIdx = nearestThin;
+            head.state = XB_STATES.ATTACHED;
+            head.mesh.material.color.setHex(0x34d399);
+            head.mesh.material.emissive.setHex(0x0a3a1a);
+          }
+        } else if (!phys.atpNormal && caActive) {
+          // ATP depleted — enter rigor (attach and stay)
+          head.state = XB_STATES.RIGOR;
+          head.mesh.material.color.setHex(0xfb7185);
+          head.mesh.material.emissive.setHex(0x3a0a1a);
+        }
+        break;
+
+      case XB_STATES.ATTACHED:
+        // Briefly attached, transition to power stroke
+        head.strokeProgress += dt * 15;
+        if (head.strokeProgress >= 1.0) {
+          head.strokeProgress = 0;
+          head.state = XB_STATES.POWER_STROKE;
+          head.mesh.material.color.setHex(0xfbbf24);
+        }
+        // Move head toward actin binding site
+        var thin = thinFilaments[head.targetThinIdx];
+        if (thin) {
+          var tp = thin.mesh.position;
+          var dx = tp.x + (head.restX * 0.3) - head.mesh.position.x;
+          head.mesh.position.x += dx * dt * 5;
+        }
+        attachedCount++;
+        break;
+
+      case XB_STATES.POWER_STROKE:
+        // Head pivots ~45°, pulling actin toward M-line
+        head.strokeProgress += dt * 6;
+        var sp = Math.min(head.strokeProgress, 1.0);
+        // Animate head position: pivot downward and pull
+        var pullAmount = sp * 0.4;
+        head.mesh.position.x = head.restX - pullAmount;
+        head.mesh.position.y = head.restY - pullAmount * 0.5;
+
+        if (head.strokeProgress >= 1.0) {
+          head.strokeProgress = 0;
+          phys.atpConsumed += 0.5; // ADP + Pi released
+          if (phys.atpNormal) {
+            head.state = XB_STATES.DETACHING;
+            head.mesh.material.color.setHex(0x22d3ee);
+          } else {
+            // Rigor — stuck in attached state
+            head.state = XB_STATES.RIGOR;
+            head.mesh.material.color.setHex(0xfb7185);
+            head.mesh.material.emissive.setHex(0x3a0a1a);
+          }
+        }
+        attachedCount++;
+        break;
+
+      case XB_STATES.DETACHING:
+        // ATP binds → head detaches from actin
+        head.detachProgress += dt * 10;
+        var dp = Math.min(head.detachProgress, 1.0);
+        // Move back toward rest position
+        head.mesh.position.x += (head.restX - head.mesh.position.x) * dt * 8;
+        head.mesh.position.y += (head.restY - head.mesh.position.y) * dt * 8;
+        head.mesh.position.z += (head.restZ - head.mesh.position.z) * dt * 8;
+
+        if (head.detachProgress >= 1.0) {
+          head.detachProgress = 0;
+          head.state = XB_STATES.RECOCKING;
+          phys.atpConsumed += 0.5; // ATP hydrolyzed
+          head.mesh.material.color.setHex(0x94a3b8);
+        }
+        break;
+
+      case XB_STATES.RECOCKING:
+        // Head recocking (ATP hydrolysis, head back to cocked position)
+        head.recockProgress += dt * 8;
+        var rp = Math.min(head.recockProgress, 1.0);
+        head.mesh.position.x = head.restX;
+        head.mesh.position.y = head.restY + rp * 0.1;
+        head.mesh.position.z = head.restZ;
+
+        if (head.recockProgress >= 1.0) {
+          head.recockProgress = 0;
+          head.state = XB_STATES.DETACHED_COCKED;
+          head.mesh.material.color.setHex(0xfb923c);
+          head.mesh.material.emissive.setHex(0x4a2a00);
+        }
+        break;
+
+      case XB_STATES.RIGOR:
+        // Stuck — no ATP to detach. Heads remain on actin.
+        attachedCount++;
+        break;
+    }
+  }
+
+  phys.totalXb = attachedCount;
+}
+
+function findNearestThin(pos) {
+  var minDist = Infinity, nearestIdx = -1;
+  for (var i = 0; i < thinFilaments.length; i++) {
+    var tp = thinFilaments[i].mesh.position;
+    var dx = tp.x - pos.x;
+    var dy = tp.y - pos.y;
+    var dz = tp.z - pos.z;
+    var d = dx*dx + dy*dy + dz*dz;
+    if (d < minDist) { minDist = d; nearestIdx = i; }
+  }
+  return nearestIdx;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PHYSIOLOGY UPDATE
+// ═══════════════════════════════════════════════════════════════
+
+function updatePhysiology(dt) {
+  // Stimulation drives Ca²⁺ release
+  var stim = phys.stimLevel / 100;
+
+  if (stim > 5) {
+    // Active stimulation — Ca²⁺ rises
+    var releaseRate = stim * 15 * dt;
+    phys.caConc = Math.min(10, phys.caConc + releaseRate);
+  } else {
+    // No stimulation — SERCA pump reuptake (slow)
+    var reuptakeRate = 3 * dt;
+    phys.caConc = Math.max(0.1, phys.caConc - reuptakeRate);
+  }
+
+  // Determine phase
+  if (phys.caConc < 0.3) {
+    phys.phase = 'RESTING';
+    phys.phaseDesc = 'Tropomyosin blocks sites';
+  } else if (phys.caConc < 0.8 && stim > 5) {
+    phys.phase = 'EXCITATION';
+    phys.phaseDesc = 'Action potential arrives';
+  } else if (phys.caConc < 3 && stim > 5) {
+    phys.phase = 'CA_RELEASE';
+    phys.phaseDesc = 'SR releases calcium ions';
+  } else if (phys.totalXb > 0 && phys.totalXb < myosinHeads.length * 0.5) {
+    phys.phase = 'CROSSBRIDGE';
+    phys.phaseDesc = 'Myosin heads cycling';
+  } else if (phys.totalXb >= myosinHeads.length * 0.5) {
+    phys.phase = 'CONTRACTION';
+    phys.phaseDesc = 'Sarcomere shortening';
+  } else if (stim < 5 && phys.caConc > 0.3 && phys.caConc < 2) {
+    phys.phase = 'RELAXATION';
+    phys.phaseDesc = 'Ca²⁺ pumped back to SR';
+  }
+
+  // Sarcomere shortening based on cross-bridges
+  var xbRatio = phys.totalXb / myosinHeads.length;
+  var targetLength = phys.restingLength - (phys.restingLength - phys.minLength) * xbRatio;
+  if (!phys.atpNormal) {
+    // Rigor — locked at shortened length
+    targetLength = phys.minLength;
+  }
+  phys.sarcomereLength += (targetLength - phys.sarcomereLength) * dt * 2;
+
+  // Force proportional to cross-bridges
+  phys.force = phys.totalXb * 0.8;
+
+  phys.elapsed += dt;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VISUAL UPDATE — move structures based on physiology
+// ═══════════════════════════════════════════════════════════════
+
+function updateVisuals(dt) {
+  var scale = 4.0;
+  var halfLen = (phys.sarcomereLength * scale) / 2;
+
+  // Move Z-lines
+  zLineL.position.x = -halfLen;
+  zLineR.position.x = halfLen;
+
+  // Move thin filaments (they're anchored to Z-lines, slide toward center)
+  var thinLen = 1.0 * scale;
+  for (var i = 0; i < thinFilaments.length; i++) {
+    var tf = thinFilaments[i];
+    if (tf.side === 'L') {
+      tf.mesh.position.x = -halfLen + thinLen / 2;
+      tf.startX = -halfLen;
+      tf.endX = -halfLen + thinLen;
+    } else {
+      tf.mesh.position.x = halfLen - thinLen / 2;
+      tf.startX = halfLen - thinLen;
+      tf.endX = halfLen;
+    }
+  }
+
+  // Move tropomyosin with thin filaments
+  for (var t = 0; t < tropomyosinMeshes.length; t++) {
+    var tp = tropomyosinMeshes[t];
+    var thinRef = thinFilaments[tp.thinIdx];
+    if (thinRef) {
+      tp.mesh.position.x = thinRef.mesh.position.x;
+    }
+    // Tropomyosin shifts away from actin when Ca²⁺ binds troponin
+    var caRatio = Math.min(phys.caConc / 5, 1);
+    tp.mesh.position.y = tp.baseY + caRatio * 0.25;
+    // Color shift — more orange when shifted
+    var r = 0xfb, g = Math.round(0x71 + caRatio * 0x20), b = Math.round(0x85 - caRatio * 0x40);
+    tp.mesh.material.color.setRGB(r/255, g/255, b/255);
+  }
+
+  // SR pulse during Ca²⁺ release
+  if (phys.phase === 'CA_RELEASE' || phys.phase === 'EXCITATION') {
+    srMesh.material.opacity = 0.25 + Math.sin(phys.elapsed * 10) * 0.15;
+  } else {
+    srMesh.material.opacity = 0.2;
+  }
+
+  // Update labels visibility
+  for (var l = 0; l < labelSprites.length; l++) {
+    labelSprites[l].visible = showLabels;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FORCE TRACE
+// ═══════════════════════════════════════════════════════════════
+
+var forceHistory = [];
+var FORCE_HIST_LEN = 300;
+var forceCanvas, forceCtx;
+
+function initForceCanvas() {
+  forceCanvas = document.getElementById('force-canvas');
+  forceCtx = forceCanvas.getContext('2d');
+  forceCanvas.width = forceCanvas.offsetWidth;
+  forceCanvas.height = 80;
+}
+
+function drawForceTrace() {
+  if (!forceCtx) return;
+  var w = forceCanvas.width;
+  var h = forceCanvas.height;
+  forceCtx.clearRect(0, 0, w, h);
+
+  // Background
+  forceCtx.fillStyle = 'rgba(14,14,16,0.9)';
+  forceCtx.fillRect(0, 0, w, h);
+
+  // Grid
+  forceCtx.strokeStyle = '#2a2a30';
+  forceCtx.lineWidth = 0.5;
+  for (var x = 0; x < w; x += 40) {
+    forceCtx.beginPath(); forceCtx.moveTo(x, 0); forceCtx.lineTo(x, h); forceCtx.stroke();
+  }
+  for (var y = 0; y < h; y += 20) {
+    forceCtx.beginPath(); forceCtx.moveTo(0, y); forceCtx.lineTo(w, y); forceCtx.stroke();
+  }
+
+  // Force curve
+  if (forceHistory.length > 1) {
+    var maxForce = 60; // max expected
+    forceCtx.strokeStyle = '#fb7185';
+    forceCtx.lineWidth = 2;
+    forceCtx.beginPath();
+    for (var i = 0; i < forceHistory.length; i++) {
+      var px = (i / FORCE_HIST_LEN) * w;
+      var py = h - (forceHistory[i] / maxForce) * h * 0.85;
+      if (i === 0) forceCtx.moveTo(px, py);
+      else forceCtx.lineTo(px, py);
+    }
+    forceCtx.stroke();
+
+    // Fill under curve
+    forceCtx.fillStyle = 'rgba(251,113,133,0.15)';
+    forceCtx.lineTo(w, h);
+    forceCtx.lineTo(0, h);
+    forceCtx.fill();
+  }
+
+  // Current value marker
+  if (forceHistory.length > 0) {
+    var lastVal = forceHistory[forceHistory.length - 1];
+    forceCtx.fillStyle = '#fb7185';
+    forceCtx.font = '10px Courier New';
+    forceCtx.fillText(lastVal.toFixed(1) + ' mN', w - 60, 14);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HUD UPDATE
+// ═══════════════════════════════════════════════════════════════
+
+function updateHUD() {
+  document.getElementById('hud-length').textContent = phys.sarcomereLength.toFixed(2);
+  document.getElementById('hud-ca').textContent = phys.caConc.toFixed(2);
+  document.getElementById('hud-force').textContent = phys.force.toFixed(1);
+  document.getElementById('hud-phase').textContent = PHASES[phys.phase].name;
+  document.getElementById('hud-phase').style.color = '#' + PHASES[phys.phase].color.toString(16).padStart(6, '0');
+  document.getElementById('hud-phase-desc').textContent = phys.phaseDesc;
+  document.getElementById('stat-xb').textContent = phys.totalXb;
+  document.getElementById('stat-atp').textContent = phys.atpConsumed.toFixed(0);
+  var shortenPct = ((phys.restingLength - phys.sarcomereLength) / phys.restingLength * 100).toFixed(1);
+  document.getElementById('stat-shorten').textContent = shortenPct + '%';
+  document.getElementById('stat-time').textContent = phys.elapsed.toFixed(1) + 's';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TIPS
+// ═══════════════════════════════════════════════════════════════
+
+var tipTimeout = null;
+function showTip(text, duration) {
+  var bar = document.getElementById('tip-bar');
+  bar.textContent = text;
+  bar.classList.add('show');
+  if (tipTimeout) clearTimeout(tipTimeout);
+  tipTimeout = setTimeout(function() { bar.classList.remove('show'); }, duration || 4000);
+}
+
+var lastPhase = 'RESTING';
+function checkPhaseChangeTips() {
+  if (phys.phase !== lastPhase) {
+    var tips = {
+      EXCITATION: '⚡ Action potential arriving — watch for Ca²⁺ release',
+      CA_RELEASE: '🟡 Calcium ions flowing from SR — tropomyosin shifting',
+      CROSSBRIDGE: '🟢 Cross-bridges forming — myosin heads attaching to actin',
+      CONTRACTION: '🔴 Sarcomere shortening — actin sliding toward M-line',
+      RELAXATION: '🔵 Ca²⁺ returning to SR via SERCA pump — heads detaching',
+      RESTING: '⚪ Resting state — tropomyosin blocking binding sites',
+    };
+    if (tips[phys.phase]) showTip(tips[phys.phase]);
+    lastPhase = phys.phase;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════
+
+function setupControls() {
+  var stimSlider = document.getElementById('stim-slider');
+  var stimVal = document.getElementById('stim-val');
+  stimSlider.addEventListener('input', function() {
+    phys.stimLevel = parseInt(this.value);
+    stimVal.textContent = phys.stimLevel + '%';
+    if (phys.stimLevel > 5 && phys.phase === 'RESTING') {
+      showTip('⚡ Stimulation fired — action potential propagating');
+    }
+  });
+
+  var speedSlider = document.getElementById('speed-slider');
+  var speedVal = document.getElementById('speed-val');
+  speedSlider.addEventListener('input', function() {
+    phys.simSpeed = parseInt(this.value) / 100;
+    speedVal.textContent = phys.simSpeed.toFixed(1) + '×';
+  });
+
+  document.getElementById('atp-normal').addEventListener('click', function() {
+    phys.atpNormal = true;
+    this.classList.add('active');
+    document.getElementById('atp-depleted').classList.remove('active');
+    showTip('✅ ATP normal — cross-bridges can detach');
+  });
+  document.getElementById('atp-depleted').addEventListener('click', function() {
+    phys.atpNormal = false;
+    this.classList.add('active');
+    document.getElementById('atp-normal').classList.remove('active');
+    showTip('⚠️ ATP depleted — rigor state! Heads stuck on actin');
+  });
+
+  document.getElementById('play-btn').addEventListener('click', function() {
+    phys.playing = true;
+    this.classList.add('active');
+    document.getElementById('pause-btn').classList.remove('active');
+  });
+  document.getElementById('pause-btn').addEventListener('click', function() {
+    phys.playing = false;
+    this.classList.add('active');
+    document.getElementById('play-btn').classList.remove('active');
+  });
+  document.getElementById('reset-btn').addEventListener('click', resetSimulation);
+
+  document.getElementById('orbit-btn').addEventListener('click', function() {
+    orbitEnabled = true;
+    this.classList.add('active');
+    document.getElementById('fixed-btn').classList.remove('active');
+  });
+  document.getElementById('fixed-btn').addEventListener('click', function() {
+    orbitEnabled = false;
+    this.classList.add('active');
+    document.getElementById('orbit-btn').classList.remove('active');
+  });
+
+  document.getElementById('label-btn').addEventListener('click', function() {
+    showLabels = true;
+    this.classList.add('active');
+    document.getElementById('nolabel-btn').classList.remove('active');
+  });
+  document.getElementById('nolabel-btn').addEventListener('click', function() {
+    showLabels = false;
+    this.classList.add('active');
+    document.getElementById('label-btn').classList.remove('active');
+  });
+
+  // Mouse drag for camera orbit
+  var canvasEl = renderer.domElement;
+  canvasEl.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging) return;
+    var dx = e.clientX - lastMouseX;
+    var dy = e.clientY - lastMouseY;
+    camTheta -= dx * 0.01;
+    camPhi -= dy * 0.01;
+    camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, camPhi));
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+    updateCameraPos();
+  });
+  document.addEventListener('mouseup', function() { isDragging = false; });
+
+  canvasEl.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    camDist += e.deltaY * 0.02;
+    camDist = Math.max(8, Math.min(35, camDist));
+    updateCameraPos();
+  });
+}
+
+function resetSimulation() {
+  phys.caConc = 0.1;
+  phys.sarcomereLength = phys.restingLength;
+  phys.force = 0;
+  phys.atpConsumed = 0;
+  phys.totalXb = 0;
+  phys.elapsed = 0;
+  phys.phase = 'RESTING';
+  phys.stimLevel = 0;
+  document.getElementById('stim-slider').value = 0;
+  document.getElementById('stim-val').textContent = '0%';
+  forceHistory = [];
+  // Reset all heads
+  for (var i = 0; i < myosinHeads.length; i++) {
+    myosinHeads[i].state = XB_STATES.DETACHED_COCKED;
+    myosinHeads[i].strokeProgress = 0;
+    myosinHeads[i].detachProgress = 0;
+    myosinHeads[i].recockProgress = 0;
+    myosinHeads[i].mesh.position.set(myosinHeads[i].restX, myosinHeads[i].restY, myosinHeads[i].restZ);
+    myosinHeads[i].mesh.material.color.setHex(0xfb923c);
+    myosinHeads[i].mesh.material.emissive.setHex(0x4a2a00);
+  }
+  // Remove all calcium ions
+  for (var j = calciumIons.length - 1; j >= 0; j--) {
+    scene.remove(calciumIons[j].mesh);
+    calciumIons.splice(j, 1);
+  }
+  showTip('↺ Simulation reset');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════════
+
+function onResize() {
+  camera.aspect = container.clientWidth / container.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  if (forceCtx) {
+    forceCanvas.width = forceCanvas.offsetWidth;
+    forceCanvas.height = 80;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (!phys.playing) {
+    renderer.render(scene, camera);
+    return;
+  }
+
+  var dt = Math.min(clock.getDelta(), 0.05) * phys.simSpeed;
+
+  // Auto orbit
+  if (orbitEnabled && !isDragging) {
+    camTheta += dt * 0.15;
+    updateCameraPos();
+  }
+
+  updatePhysiology(dt);
+  updateCrossBridges(dt);
+  updateCalciumIons(dt);
+  updateVisuals(dt);
+
+  // Force trace history
+  forceHistory.push(phys.force);
+  if (forceHistory.length > FORCE_HIST_LEN) forceHistory.shift();
+
+  drawForceTrace();
+  updateHUD();
+  checkPhaseChangeTips();
+
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════════════
+
+document.getElementById('start-btn').addEventListener('click', function() {
+  document.getElementById('start-overlay').style.display = 'none';
+  init();
+  initForceCanvas();
+  animate();
+  setTimeout(function() {
+    showTip('💡 Drag the Stimulation slider to fire an action potential and watch contraction begin');
+  }, 1000);
+});
+</script>
+</body>
+</html>

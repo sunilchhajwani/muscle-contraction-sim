@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sarcomere Simulator — Architecture Schematic</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'JetBrains Mono',monospace; background:#020617; min-height:100vh; padding:2rem; color:white; }
+  .container { max-width:1200px; margin:0 auto; }
+  .header { margin-bottom:2rem; }
+  .header-row { display:flex; align-items:center; gap:1rem; margin-bottom:0.5rem; }
+  .pulse-dot { width:12px; height:12px; background:#34d399; border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  h1 { font-size:1.5rem; font-weight:700; letter-spacing:-0.025em; }
+  .subtitle { color:#94a3b8; font-size:0.875rem; margin-left:1.75rem; }
+  .diagram-container { background:rgba(15,23,42,0.5); border-radius:1rem; border:1px solid #1e293b; padding:1.5rem; overflow-x:auto; }
+  svg { width:100%; min-width:1000px; display:block; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem; margin-top:2rem; }
+  .card { background:rgba(15,23,42,0.5); border-radius:0.75rem; border:1px solid #1e293b; padding:1.25rem; }
+  .card-header { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem; }
+  .card-dot { width:8px; height:8px; border-radius:50%; }
+  .card-dot.cyan { background:#22d3ee; } .card-dot.emerald { background:#34d399; }
+  .card-dot.violet { background:#a78bfa; } .card-dot.amber { background:#fbbf24; } .card-dot.rose { background:#fb7185; }
+  .card h3 { font-size:0.875rem; font-weight:600; }
+  .card ul { list-style:none; color:#94a3b8; font-size:0.75rem; }
+  .card li { margin-bottom:0.375rem; }
+  .footer { text-align:center; margin-top:1.5rem; color:#475569; font-size:0.75rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-row">
+      <div class="pulse-dot"></div>
+      <h1>Sarcomere Contraction Simulator — Architecture</h1>
+    </div>
+    <p class="subtitle">3D sliding filament theory visualization · Three.js r128 · Single-file HTML</p>
+  </div>
+
+  <div class="diagram-container">
+    <svg viewBox="0 0 1000 720">
+      <defs>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+        </marker>
+        <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#22d3ee" />
+        </marker>
+        <marker id="arrowhead-emerald" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#34d399" />
+        </marker>
+        <marker id="arrowhead-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
+        </marker>
+        <marker id="arrowhead-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+        </marker>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+        </pattern>
+      </defs>
+
+      <rect width="100%" height="100%" fill="url(#grid)" />
+
+      <!-- ===== LAYER LABELS ===== -->
+      <text x="20" y="30" fill="#475569" font-size="10" font-weight="600">USER LAYER</text>
+      <text x="20" y="160" fill="#475569" font-size="10" font-weight="600">CONTROLS LAYER</text>
+      <text x="20" y="300" fill="#475569" font-size="10" font-weight="600">PHYSIOLOGY ENGINE</text>
+      <text x="20" y="440" fill="#475569" font-size="10" font-weight="600">3D SCENE LAYER</text>
+      <text x="20" y="600" fill="#475569" font-size="10" font-weight="600">OUTPUT LAYER</text>
+
+      <!-- ===== USER LAYER ===== -->
+      <rect x="30" y="45" width="120" height="50" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="90" y="68" fill="white" font-size="11" font-weight="600" text-anchor="middle">Start Button</text>
+      <text x="90" y="82" fill="#94a3b8" font-size="9" text-anchor="middle">User gesture</text>
+
+      <rect x="180" y="45" width="140" height="50" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="250" y="68" fill="white" font-size="11" font-weight="600" text-anchor="middle">Sidebar Controls</text>
+      <text x="250" y="82" fill="#94a3b8" font-size="9" text-anchor="middle">Sliders · Toggles</text>
+
+      <rect x="350" y="45" width="120" height="50" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="410" y="68" fill="white" font-size="11" font-weight="600" text-anchor="middle">Mouse Drag</text>
+      <text x="410" y="82" fill="#94a3b8" font-size="9" text-anchor="middle">Camera orbit</text>
+
+      <rect x="500" y="45" width="130" height="50" rx="6" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="565" y="68" fill="white" font-size="11" font-weight="600" text-anchor="middle">Scroll Wheel</text>
+      <text x="565" y="82" fill="#94a3b8" font-size="9" text-anchor="middle">Zoom in/out</text>
+
+      <!-- ===== CONTROLS LAYER ===== -->
+      <rect x="30" y="175" width="120" height="55" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="90" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">Stimulation</text>
+      <text x="90" y="214" fill="#94a3b8" font-size="9" text-anchor="middle">Slider 0–100%</text>
+      <text x="90" y="225" fill="#22d3ee" font-size="8" text-anchor="middle">→ AP trigger</text>
+
+      <rect x="170" y="175" width="120" height="55" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="230" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">ATP Toggle</text>
+      <text x="230" y="214" fill="#94a3b8" font-size="9" text-anchor="middle">Normal / Depleted</text>
+      <text x="230" y="225" fill="#22d3ee" font-size="8" text-anchor="middle">→ Rigor state</text>
+
+      <rect x="310" y="175" width="120" height="55" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="370" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">Sim Speed</text>
+      <text x="370" y="214" fill="#94a3b8" font-size="9" text-anchor="middle">0× – 3× slider</text>
+      <text x="370" y="225" fill="#22d3ee" font-size="8" text-anchor="middle">→ Slow-mo teaching</text>
+
+      <rect x="450" y="175" width="120" height="55" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="510" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">Playback</text>
+      <text x="510" y="214" fill="#94a3b8" font-size="9" text-anchor="middle">Play / Pause / Reset</text>
+      <text x="510" y="225" fill="#22d3ee" font-size="8" text-anchor="middle">→ Loop control</text>
+
+      <rect x="590" y="175" width="120" height="55" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="650" y="198" fill="white" font-size="11" font-weight="600" text-anchor="middle">View Toggle</text>
+      <text x="650" y="214" fill="#94a3b8" font-size="9" text-anchor="middle">Labels · Camera</text>
+      <text x="650" y="225" fill="#22d3ee" font-size="8" text-anchor="middle">→ Orbit / Fixed</text>
+
+      <!-- ===== PHYSIOLOGY ENGINE ===== -->
+      <rect x="30" y="315" width="150" height="65" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="105" y="338" fill="white" font-size="11" font-weight="600" text-anchor="middle">Ca²⁺ Dynamics</text>
+      <text x="105" y="354" fill="#94a3b8" font-size="9" text-anchor="middle">SR release / SERCA</text>
+      <text x="105" y="368" fill="#34d399" font-size="8" text-anchor="middle">0.1 → 10 µmol/L</text>
+
+      <rect x="200" y="315" width="160" height="65" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="280" y="338" fill="white" font-size="11" font-weight="600" text-anchor="middle">Cross-Bridge FSM</text>
+      <text x="280" y="354" fill="#94a3b8" font-size="9" text-anchor="middle">5-state cycle</text>
+      <text x="280" y="368" fill="#34d399" font-size="8" text-anchor="middle">Attach → Stroke → Detach</text>
+
+      <rect x="380" y="315" width="150" height="65" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="455" y="338" fill="white" font-size="11" font-weight="600" text-anchor="middle">Phase Machine</text>
+      <text x="455" y="354" fill="#94a3b8" font-size="9" text-anchor="middle">6 phases</text>
+      <text x="455" y="368" fill="#34d399" font-size="8" text-anchor="middle">Rest→Excite→Ca→CB→Contract→Relax</text>
+
+      <rect x="550" y="315" width="150" height="65" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="625" y="338" fill="white" font-size="11" font-weight="600" text-anchor="middle">Sarcomere Math</text>
+      <text x="625" y="354" fill="#94a3b8" font-size="9" text-anchor="middle">Shortening 2.2→1.6 µm</text>
+      <text x="625" y="368" fill="#34d399" font-size="8" text-anchor="middle">Force = f(XB count)</text>
+
+      <rect x="720" y="315" width="140" height="65" rx="6" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="790" y="338" fill="white" font-size="11" font-weight="600" text-anchor="middle">Rigor Logic</text>
+      <text x="790" y="354" fill="#94a3b8" font-size="9" text-anchor="middle">ATP-depleted mode</text>
+      <text x="790" y="368" fill="#34d399" font-size="8" text-anchor="middle">Heads locked on actin</text>
+
+      <!-- ===== 3D SCENE LAYER ===== -->
+      <rect x="30" y="455" width="120" height="65" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="90" y="478" fill="white" font-size="11" font-weight="600" text-anchor="middle">Z-Lines</text>
+      <text x="90" y="494" fill="#94a3b8" font-size="9" text-anchor="middle">Mesh plates</text>
+      <text x="90" y="508" fill="#fb7185" font-size="8" text-anchor="middle">Slide inward</text>
+
+      <rect x="170" y="455" width="120" height="65" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="230" y="478" fill="white" font-size="11" font-weight="600" text-anchor="middle">Thick Filaments</text>
+      <text x="230" y="494" fill="#94a3b8" font-size="9" text-anchor="middle">Myosin rods</text>
+      <text x="230" y="508" fill="#fb7185" font-size="8" text-anchor="middle">14 × filaments</text>
+
+      <rect x="310" y="455" width="120" height="65" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="370" y="478" fill="white" font-size="11" font-weight="600" text-anchor="middle">Thin Filaments</text>
+      <text x="370" y="494" fill="#94a3b8" font-size="9" text-anchor="middle">Actin strands</text>
+      <text x="370" y="508" fill="#fb7185" font-size="8" text-anchor="middle">L+R per Z-line</text>
+
+      <rect x="450" y="455" width="120" height="65" rx="6" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="510" y="478" fill="white" font-size="11" font-weight="600" text-anchor="middle">Myosin Heads</text>
+      <text x="510" y="494" fill="#94a3b8" font-size="9" text-anchor="middle">Sphere meshes</text>
+      <text x="510" y="508" fill="#fb7185" font-size="8" text-anchor="middle">~196 heads</text>
+
+      <rect x="590" y="455" width="120" height="65" rx="6" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="650" y="478" fill="white" font-size="11" font-weight="600" text-anchor="middle">Ca²⁺ Ions</text>
+      <text x="650" y="494" fill="#94a3b8" font-size="9" text-anchor="middle">Particle system</text>
+      <text x="650" y="508" fill="#fb923c" font-size="8" text-anchor="middle">Release→Bind→Return</text>
+
+      <rect x="730" y="455" width="130" height="65" rx="6" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="795" y="478" fill="white" font-size="11" font-weight="600" text-anchor="middle">SR + Tropomyosin</text>
+      <text x="795" y="494" fill="#94a3b8" font-size="9" text-anchor="middle">SR torus + ribbons</text>
+      <text x="795" y="508" fill="#a78bfa" font-size="8" text-anchor="middle">Shifts on Ca²⁺ bind</text>
+
+      <!-- ===== OUTPUT / HUD LAYER ===== -->
+      <rect x="30" y="615" width="130" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="95" y="637" fill="white" font-size="11" font-weight="600" text-anchor="middle">HUD Panel</text>
+      <text x="95" y="653" fill="#94a3b8" font-size="9" text-anchor="middle">Length · Ca²⁺ · Force</text>
+      <text x="95" y="667" fill="#22d3ee" font-size="8" text-anchor="middle">Live readouts</text>
+
+      <rect x="180" y="615" width="130" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="245" y="637" fill="white" font-size="11" font-weight="600" text-anchor="middle">Phase Display</text>
+      <text x="245" y="653" fill="#94a3b8" font-size="9" text-anchor="middle">Color-coded</text>
+      <text x="245" y="667" fill="#22d3ee" font-size="8" text-anchor="middle">6 phase names</text>
+
+      <rect x="330" y="615" width="130" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="395" y="637" fill="white" font-size="11" font-weight="600" text-anchor="middle">Force Trace</text>
+      <text x="395" y="653" fill="#94a3b8" font-size="9" text-anchor="middle">Canvas 2D graph</text>
+      <text x="395" y="667" fill="#22d3ee" font-size="8" text-anchor="middle">300-pt history</text>
+
+      <rect x="480" y="615" width="130" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="545" y="637" fill="white" font-size="11" font-weight="600" text-anchor="middle">Stats Row</text>
+      <text x="545" y="653" fill="#94a3b8" font-size="9" text-anchor="middle">XB · ATP · Shorten</text>
+      <text x="545" y="667" fill="#22d3ee" font-size="8" text-anchor="middle">Live counters</text>
+
+      <rect x="630" y="615" width="130" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="695" y="637" fill="white" font-size="11" font-weight="600" text-anchor="middle">Tip Bar</text>
+      <text x="695" y="653" fill="#94a3b8" font-size="9" text-anchor="middle">Phase-change tips</text>
+      <text x="695" y="667" fill="#22d3ee" font-size="8" text-anchor="middle">Auto-show</text>
+
+      <rect x="780" y="615" width="130" height="60" rx="6" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="845" y="637" fill="white" font-size="11" font-weight="600" text-anchor="middle">WebGL Render</text>
+      <text x="845" y="653" fill="#94a3b8" font-size="9" text-anchor="middle">Three.js r128</text>
+      <text x="845" y="667" fill="#22d3ee" font-size="8" text-anchor="middle">requestAnimationFrame</text>
+
+      <!-- ===== ARROWS (User → Controls) ===== -->
+      <line x1="90" y1="95" x2="90" y2="173" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+      <line x1="250" y1="95" x2="230" y2="173" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+      <line x1="410" y1="95" x2="650" y2="173" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+      <line x1="565" y1="95" x2="650" y2="173" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+      <!-- ===== ARROWS (Controls → Physiology) ===== -->
+      <line x1="90" y1="230" x2="105" y2="313" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+      <line x1="230" y1="230" x2="790" y2="313" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+      <line x1="370" y1="230" x2="455" y2="313" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+      <line x1="510" y1="230" x2="280" y2="313" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+      <!-- ===== ARROWS (Physiology → 3D Scene) ===== -->
+      <line x1="105" y1="380" x2="90" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <line x1="105" y1="380" x2="650" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <line x1="280" y1="380" x2="510" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <line x1="455" y1="380" x2="370" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <line x1="625" y1="380" x2="230" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <line x1="625" y1="380" x2="90" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+      <line x1="790" y1="380" x2="795" y2="453" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrowhead-emerald)"/>
+
+      <!-- ===== ARROWS (3D → Output) ===== -->
+      <line x1="90" y1="520" x2="95" y2="613" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+      <line x1="370" y1="520" x2="245" y2="613" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+      <line x1="510" y1="520" x2="395" y2="613" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+      <line x1="650" y1="520" x2="545" y2="613" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+      <line x1="795" y1="520" x2="845" y2="613" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrowhead-rose)"/>
+
+      <!-- ===== Cross-Bridge Cycle Mini-Diagram (right side) ===== -->
+      <rect x="880" y="175" width="100" height="205" rx="8" fill="transparent" stroke="#34d399" stroke-width="1" stroke-dasharray="4,4"/>
+      <text x="930" y="192" fill="#34d399" font-size="9" font-weight="600" text-anchor="middle">Cross-Bridge Cycle</text>
+      <circle cx="930" cy="210" r="7" fill="rgba(251,146,60,0.5)" stroke="#fb923c" stroke-width="1.2"/>
+      <text x="915" y="214" fill="white" font-size="8" text-anchor="middle">①</text>
+      <text x="945" y="214" fill="#94a3b8" font-size="8">Cocked</text>
+      <line x1="930" y1="217" x2="930" y2="240" stroke="#34d399" stroke-width="1" marker-end="url(#arrowhead-emerald)"/>
+
+      <circle cx="930" cy="248" r="7" fill="rgba(52,211,153,0.5)" stroke="#34d399" stroke-width="1.2"/>
+      <text x="915" y="252" fill="white" font-size="8" text-anchor="middle">②</text>
+      <text x="945" y="252" fill="#94a3b8" font-size="8">Attach</text>
+      <line x1="930" y1="255" x2="930" y2="278" stroke="#34d399" stroke-width="1" marker-end="url(#arrowhead-emerald)"/>
+
+      <circle cx="930" cy="286" r="7" fill="rgba(251,191,36,0.5)" stroke="#fbbf24" stroke-width="1.2"/>
+      <text x="915" y="290" fill="white" font-size="8" text-anchor="middle">③</text>
+      <text x="945" y="290" fill="#94a3b8" font-size="8">Power</text>
+      <line x1="930" y1="293" x2="930" y2="316" stroke="#34d399" stroke-width="1" marker-end="url(#arrowhead-emerald)"/>
+
+      <circle cx="930" cy="324" r="7" fill="rgba(34,211,238,0.5)" stroke="#22d3ee" stroke-width="1.2"/>
+      <text x="915" y="328" fill="white" font-size="8" text-anchor="middle">④</text>
+      <text x="945" y="328" fill="#94a3b8" font-size="8">Detach</text>
+      <line x1="930" y1="331" x2="930" y2="354" stroke="#34d399" stroke-width="1" marker-end="url(#arrowhead-emerald)"/>
+
+      <circle cx="930" cy="362" r="7" fill="rgba(148,163,184,0.5)" stroke="#94a3b8" stroke-width="1.2"/>
+      <text x="915" y="366" fill="white" font-size="8" text-anchor="middle">⑤</text>
+      <text x="945" y="366" fill="#94a3b8" font-size="8">Recock</text>
+      <path d="M 923,362 Q 895,300 923,210" fill="none" stroke="#34d399" stroke-width="1" marker-end="url(#arrowhead-emerald)"/>
+
+      <!-- ===== LEGEND ===== -->
+      <text x="880" y="450" fill="white" font-size="10" font-weight="600">Legend</text>
+      <rect x="880" y="460" width="14" height="9" rx="2" fill="rgba(30,41,59,0.5)" stroke="#94a3b8" stroke-width="1"/>
+      <text x="900" y="468" fill="#94a3b8" font-size="8">User Input</text>
+      <rect x="880" y="475" width="14" height="9" rx="2" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="900" y="483" fill="#94a3b8" font-size="8">Controls</text>
+      <rect x="880" y="490" width="14" height="9" rx="2" fill="rgba(6,78,59,0.4)" stroke="#34d399" stroke-width="1"/>
+      <text x="900" y="498" fill="#94a3b8" font-size="8">Physiology</text>
+      <rect x="880" y="505" width="14" height="9" rx="2" fill="rgba(136,19,55,0.4)" stroke="#fb7185" stroke-width="1"/>
+      <text x="900" y="513" fill="#94a3b8" font-size="8">3D Objects</text>
+      <rect x="880" y="520" width="14" height="9" rx="2" fill="rgba(251,146,60,0.3)" stroke="#fb923c" stroke-width="1"/>
+      <text x="900" y="528" fill="#94a3b8" font-size="8">Particles</text>
+      <rect x="880" y="535" width="14" height="9" rx="2" fill="rgba(76,29,149,0.4)" stroke="#a78bfa" stroke-width="1"/>
+      <text x="900" y="543" fill="#94a3b8" font-size="8">Structures</text>
+      <rect x="880" y="550" width="14" height="9" rx="2" fill="rgba(8,51,68,0.4)" stroke="#22d3ee" stroke-width="1"/>
+      <text x="900" y="558" fill="#94a3b8" font-size="8">HUD Output</text>
+    </svg>
+  </div>
+
+  <!-- Info Cards -->
+  <div class="cards">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot emerald"></div>
+        <h3>Physiology Engine</h3>
+      </div>
+      <ul>
+        <li>• Ca²⁺ release/reuptake kinetics (SR → SERCA)</li>
+        <li>• 5-state cross-bridge cycle FSM</li>
+        <li>• 6-phase state machine (Rest→Relax)</li>
+        <li>• Sarcomere shortening: 2.2 → 1.6 µm</li>
+        <li>• Force = f(cross-bridge count)</li>
+        <li>• Rigor mode (ATP-depleted)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot rose"></div>
+        <h3>3D Scene Components</h3>
+      </div>
+      <ul>
+        <li>• Z-lines (vertical mesh plates)</li>
+        <li>• Thick filaments / myosin rods (14)</li>
+        <li>• Thin filaments / actin strands (L+R)</li>
+        <li>• Myosin heads (~196 sphere meshes)</li>
+        <li>• Tropomyosin ribbons (shift on Ca²⁺)</li>
+        <li>• Calcium ion particle system</li>
+        <li>• Sarcoplasmic reticulum (torus)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot cyan"></div>
+        <h3>Interactive Controls</h3>
+      </div>
+      <ul>
+        <li>• Stimulation slider (0–100%) → AP</li>
+        <li>• ATP normal/depleted toggle (rigor)</li>
+        <li>• Simulation speed (0× – 3× slow-mo)</li>
+        <li>• Play / Pause / Reset</li>
+        <li>• Camera orbit (drag) + zoom (scroll)</li>
+        <li>• Labels on/off toggle</li>
+        <li>• Phase-change tip bar (auto-show)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-dot violet"></div>
+        <h3>HUD Output</h3>
+      </div>
+      <ul>
+        <li>• Sarcomere length (µm, live)</li>
+        <li>• [Ca²⁺] concentration (µmol/L)</li>
+        <li>• Force (mN)</li>
+        <li>• Phase indicator (color-coded)</li>
+        <li>• Force trace (canvas 2D, 300-pt)</li>
+        <li>• Cross-bridge / ATP / shortening stats</li>
+        <li>• Tip bar for teaching guidance</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="footer">
+    Sarcomere Contraction Simulator · Three.js r128 · Single-file HTML · Sliding Filament Theory
+  </p>
+</div>
+</body>
+</html>
