@@ -1342,11 +1342,6 @@ function onResize() {
 function animate() {
   requestAnimationFrame(animate);
 
-  if (!phys.playing) {
-    renderer.render(scene, camera);
-    return;
-  }
-
   var dt = Math.min(clock.getDelta(), 0.05) * phys.simSpeed;
 
   // Auto orbit
@@ -1355,10 +1350,77 @@ function animate() {
     updateCameraPos();
   }
 
-  updatePhysiology(dt);
-  updateCrossBridges(dt);
-  updateCalciumIons(dt);
-  updateVisuals(dt);
+  if (phys.playing) {
+    updatePhysiology(dt);
+    updateCrossBridges(dt);
+    updateCalciumIons(dt);
+    updateVisuals(dt);
+  } else {
+    // PAUSED — Manual scrubbing override!
+    // Stimulation directly controls physiology variables
+    phys.caConc = 0.1 + (phys.stimLevel / 100) * 9.9;
+    
+    if (phys.atpNormal) {
+      phys.totalXb = Math.round((phys.stimLevel / 100) * 30);
+      phys.sarcomereLength = 2.2 - (2.2 - 1.6) * (phys.stimLevel / 100);
+    } else {
+      // Rigor mortis in pause
+      phys.totalXb = 30;
+      phys.sarcomereLength = 1.6;
+    }
+    phys.force = phys.totalXb * 0.8;
+    
+    // Determine phase for paused state
+    if (phys.caConc < 0.3) {
+      phys.phase = 'RESTING';
+      phys.phaseDesc = 'Tropomyosin blocks sites';
+    } else if (phys.caConc < 0.8) {
+      phys.phase = 'EXCITATION';
+      phys.phaseDesc = 'Action potential arrives';
+    } else if (phys.caConc < 3) {
+      phys.phase = 'CA_RELEASE';
+      phys.phaseDesc = 'SR releases calcium ions';
+    } else if (phys.totalXb > 0 && phys.totalXb < 15) {
+      phys.phase = 'CROSSBRIDGE';
+      phys.phaseDesc = 'Myosin heads cycling';
+    } else {
+      phys.phase = 'CONTRACTION';
+      phys.phaseDesc = 'Sarcomere shortening';
+    }
+
+    // Animate heads to attach/stroke based on manual stimulation level
+    var stimRatio = phys.stimLevel / 100;
+    for (var i = 0; i < myosinHeads.length; i++) {
+      var head = myosinHeads[i];
+      var headRatio = i / myosinHeads.length;
+      if (headRatio < stimRatio) {
+        head.state = XB_STATES.POWER_STROKE;
+        head.mesh.material.color.setHex(0xfbbf24); // yellow
+        head.mesh.material.emissive.setHex(0x4a3a00);
+        
+        // Position them in fully stroked state
+        var pullX = (head.restX < 0) ? 0.4 : -0.4;
+        var pullY = (head.angle === 0) ? -0.2 : 0.2;
+        head.mesh.position.x = head.restX + pullX;
+        
+        var thin = thinFilaments[head.targetThinIdx >= 0 ? head.targetThinIdx : findNearestThin(head.mesh.position)];
+        if (thin) {
+          var tp = thin.mesh.position;
+          head.mesh.position.y = head.restY + pullY + (tp.y - head.restY) * 0.5;
+          head.mesh.position.z = head.restZ + (tp.z - head.restZ) * 0.8;
+        }
+      } else {
+        // Detached and cocked
+        head.state = XB_STATES.DETACHED_COCKED;
+        head.mesh.material.color.setHex(0xfb923c); // orange
+        head.mesh.material.emissive.setHex(0x4a2a00);
+        head.mesh.position.set(head.restX, head.restY, head.restZ);
+      }
+    }
+    
+    updateCalciumIons(dt * 0.2); // light drift of particles for live feel
+    updateVisuals(dt);
+  }
 
   // Force trace history
   forceHistory.push(phys.force);
