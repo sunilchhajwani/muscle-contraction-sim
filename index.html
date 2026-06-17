@@ -428,25 +428,27 @@ function buildSarcomere() {
       sarcomereGroup.add(headGroup);
 
       // Create the structural neck (cylinder)
-      // Height is 0.22, base of cylinder is at group (0,0,0) by offsetting center to 0.11
-      var neckGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.22, 8);
+      // Height is 0.38, base of cylinder is at group (0,0,0) by offsetting center to 0.19
+      var neckGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.38, 8);
       var neckMat = new THREE.MeshPhongMaterial({ color: 0x94a3b8, emissive: 0x1e293b, shininess: 30 });
       var neckMesh = new THREE.Mesh(neckGeo, neckMat);
-      neckMesh.position.set(0, 0.11, 0);
+      neckMesh.position.set(0, 0.19, 0);
       headGroup.add(neckMesh);
 
-      // Create the double heads (two adjacent spheres at the end of the neck)
+      // Create the double heads (two adjacent spheres at the end of the neck, scaled in Y to make them oval/pear-shaped)
       var headGeo = new THREE.SphereGeometry(0.08, 10, 8);
       var headMat = new THREE.MeshPhongMaterial({ color: 0xfb923c, emissive: 0x4a2a00, shininess: 80 });
       
       var head1Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head1 slightly in X (+0.05) and Z (+0.02) at the top of the neck (Y = 0.22)
-      head1Mesh.position.set(0.05, 0.22, 0.02);
+      // Offset head1 slightly in X (+0.06) and Z (+0.02) at the top of the neck (Y = 0.42)
+      head1Mesh.position.set(0.06, 0.42, 0.02);
+      head1Mesh.scale.set(1.0, 1.4, 1.0);
       headGroup.add(head1Mesh);
 
       var head2Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head2 slightly in X (-0.05) and Z (-0.02) at the top of the neck (Y = 0.22)
-      head2Mesh.position.set(-0.05, 0.22, -0.02);
+      // Offset head2 slightly in X (-0.06) and Z (-0.02) at the top of the neck (Y = 0.42)
+      head2Mesh.position.set(-0.06, 0.42, -0.02);
+      head2Mesh.scale.set(1.0, 1.4, 1.0);
       headGroup.add(head2Mesh);
 
       // Initial rotation: apply angle around local X-axis (0 or Math.PI)
@@ -813,7 +815,7 @@ function updateCrossBridges(dt) {
         
         // Smoothly reach in Y-Z (rotate around X) to touch thin filament
         var sp = Math.min(head.strokeProgress, 1.0);
-        var targetTiltX = head.angle + 0.7 * angleSign;
+        var targetTiltX = head.angle + 1.0 * angleSign;
         head.group.rotation.x = head.angle + (targetTiltX - head.angle) * sp;
         head.group.rotation.z = -0.35 * sideSign;
         
@@ -825,7 +827,7 @@ function updateCrossBridges(dt) {
         head.strokeProgress += dt * 6;
         var sp = Math.min(head.strokeProgress, 1.0);
         
-        head.group.rotation.x = head.angle + 0.7 * angleSign; // maintain reach
+        head.group.rotation.x = head.angle + 1.0 * angleSign; // maintain reach
         head.group.rotation.z = (-0.35 + 0.7 * sp) * sideSign; // pivot pull
 
         if (head.strokeProgress >= 1.0) {
@@ -848,7 +850,7 @@ function updateCrossBridges(dt) {
         head.detachProgress += dt * 10;
         var dp = Math.min(head.detachProgress, 1.0);
         
-        head.group.rotation.x = head.angle + 0.7 * (1.0 - dp) * angleSign; // retract reach
+        head.group.rotation.x = head.angle + 1.0 * (1.0 - dp) * angleSign; // retract reach
         head.group.rotation.z = (+0.35 - 0.7 * dp) * sideSign; // return to cocked pivot
 
         if (head.detachProgress >= 1.0) {
@@ -877,7 +879,7 @@ function updateCrossBridges(dt) {
 
       case XB_STATES.RIGOR:
         // Stuck — no ATP to detach. Heads remain on actin.
-        head.group.rotation.x = head.angle + 0.7 * angleSign;
+        head.group.rotation.x = head.angle + 1.0 * angleSign;
         head.group.rotation.z = 0.35 * sideSign;
         
         if (phys.atpNormal) {
@@ -1427,7 +1429,7 @@ function animate() {
         setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
         
         // Rotate them to fully stroked state (reached and pulled)
-        head.group.rotation.x = head.angle + 0.7 * angleSign;
+        head.group.rotation.x = head.angle + 1.0 * angleSign;
         head.group.rotation.z = 0.35 * sideSign;
       } else {
         // Detached and cocked
