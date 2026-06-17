@@ -751,11 +751,13 @@ function findNearestThin(pos) {
 
 function updatePhysiology(dt) {
   // Stimulation drives Ca²⁺ release
-  var stim = phys.stimLevel / 100;
+  // stimLevel is 0-100 from the slider; use raw value for threshold checks
+  var stim = phys.stimLevel; // 0-100
 
   if (stim > 5) {
     // Active stimulation — Ca²⁺ rises
-    var releaseRate = stim * 15 * dt;
+    // releaseRate normalized: at stim=100, rate = 15*dt (fast rise)
+    var releaseRate = (stim / 100) * 15 * dt;
     phys.caConc = Math.min(10, phys.caConc + releaseRate);
   } else {
     // No stimulation — SERCA pump reuptake (slow)
@@ -791,7 +793,8 @@ function updatePhysiology(dt) {
     // Rigor — locked at shortened length
     targetLength = phys.minLength;
   }
-  phys.sarcomereLength += (targetLength - phys.sarcomereLength) * dt * 2;
+  // Faster interpolation so movement is clearly visible to students
+  phys.sarcomereLength += (targetLength - phys.sarcomereLength) * dt * 5;
 
   // Force proportional to cross-bridges
   phys.force = phys.totalXb * 0.8;
