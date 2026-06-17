@@ -427,36 +427,36 @@ function buildSarcomere() {
       headGroup.position.set(hx, fy, fz);
       sarcomereGroup.add(headGroup);
 
-      // Create the structural neck (cylinder)
-      // Height is 0.38, base of cylinder is at group (0,0,0) by offsetting center to 0.19
-      var neckGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.38, 8);
+      // Create the structural neck (cylinder) projecting along the Z-axis
+      // Height is 0.38, base of cylinder is at group (0,0,0) by offsetting center to 0.19.
+      // We rotate it by Math.PI / 2 around X so it projects along the local Z-axis.
+      var neckGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.38, 8);
       var neckMat = new THREE.MeshPhongMaterial({ color: 0x94a3b8, emissive: 0x1e293b, shininess: 30 });
       var neckMesh = new THREE.Mesh(neckGeo, neckMat);
-      neckMesh.position.set(0, 0.19, 0);
+      neckMesh.rotation.x = Math.PI / 2;
+      neckMesh.position.set(0, 0, 0.19);
       headGroup.add(neckMesh);
 
-      // Create the double heads (two adjacent spheres at the end of the neck, scaled in Y to make them oval/pear-shaped)
+      // Create the double heads (two adjacent spheres at the end of the neck, scaled in Z to make them oval/pear-shaped)
       var headGeo = new THREE.SphereGeometry(0.08, 10, 8);
       var headMat = new THREE.MeshPhongMaterial({ color: 0xfb923c, emissive: 0x4a2a00, shininess: 80 });
       
       var head1Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head1 slightly in X (+0.06) and Z (+0.02) at the top of the neck (Y = 0.42)
-      head1Mesh.position.set(0.06, 0.42, 0.02);
-      head1Mesh.scale.set(1.0, 1.4, 1.0);
+      // Offset head1 slightly in X (+0.05) and Y (+0.02) at the top of the neck (Z = 0.42)
+      head1Mesh.position.set(0.05, 0.02, 0.42);
+      head1Mesh.scale.set(1.0, 1.0, 1.4);
       headGroup.add(head1Mesh);
 
       var head2Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head2 slightly in X (-0.06) and Z (-0.02) at the top of the neck (Y = 0.42)
-      head2Mesh.position.set(-0.06, 0.42, -0.02);
-      head2Mesh.scale.set(1.0, 1.4, 1.0);
+      // Offset head2 slightly in X (-0.05) and Y (-0.02) at the top of the neck (Z = 0.42)
+      head2Mesh.position.set(-0.05, -0.02, 0.42);
+      head2Mesh.scale.set(1.0, 1.0, 1.4);
       headGroup.add(head2Mesh);
 
-      // Initial rotation: set ZXY order so Z (pivot) rotates along the filament axis
-      // and X (reach) rotates towards the actin thin filament.
+      // Initial rotation: all point towards Z (no X/Z rotations), cocked in Y
       var sideSign = (hx < 0) ? 1 : -1;
-      headGroup.rotation.order = 'ZXY';
-      headGroup.rotation.x = angle; // Initial orientation (pointing up/down)
-      headGroup.rotation.z = 0.35 * sideSign; // Initial cocked rotation (tilted away from M-line)
+      headGroup.rotation.order = 'YXZ';
+      headGroup.rotation.set(0, -0.35 * sideSign, 0);
 
       myosinHeads.push({
         group: headGroup,
@@ -791,8 +791,7 @@ function updateCrossBridges(dt) {
     switch (head.state) {
       case XB_STATES.DETACHED_COCKED:
         // Head is cocked, waiting for binding site to be exposed
-        head.group.rotation.x = head.angle;
-        head.group.rotation.z = 0.35 * sideSign;
+        head.group.rotation.set(0, -0.35 * sideSign, 0);
         
         if (caActive && Math.random() < dt * 8 * (phys.caConc / 10)) {
           // Attach to nearest thin filament
@@ -814,22 +813,18 @@ function updateCrossBridges(dt) {
           setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
         }
         
-        // Smoothly reach in Y-Z (rotate around X) to touch thin filament
-        var sp = Math.min(head.strokeProgress, 1.0);
-        var targetTiltX = head.angle + 1.35 * angleSign;
-        head.group.rotation.x = head.angle + (targetTiltX - head.angle) * sp;
-        head.group.rotation.z = 0.35 * sideSign;
+        // Remain pointing at thin filament
+        head.group.rotation.set(0, -0.35 * sideSign, 0);
         
         attachedCount++;
         break;
 
       case XB_STATES.POWER_STROKE:
-        // Head pivots ~45° along the long axis (rotate around Z), pulling actin toward M-line
+        // Head pivots ~45° along the long axis (rotate around Y), pulling actin toward M-line
         head.strokeProgress += dt * 6;
         var sp = Math.min(head.strokeProgress, 1.0);
         
-        head.group.rotation.x = head.angle + 1.35 * angleSign; // maintain reach
-        head.group.rotation.z = (0.35 - 0.7 * sp) * sideSign; // pivot pull (moves from cocked +0.35 to stroked -0.35)
+        head.group.rotation.set(0, (-0.35 + 0.7 * sp) * sideSign, 0); // pivot pull along X
 
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
@@ -847,12 +842,11 @@ function updateCrossBridges(dt) {
         break;
 
       case XB_STATES.DETACHING:
-        // ATP binds → head detaches from actin (retract reach and pull back pivot)
+        // ATP binds → head detaches from actin (pull back pivot)
         head.detachProgress += dt * 10;
         var dp = Math.min(head.detachProgress, 1.0);
         
-        head.group.rotation.x = head.angle + 1.35 * (1.0 - dp) * angleSign; // retract reach
-        head.group.rotation.z = (-0.35 + 0.7 * dp) * sideSign; // return to cocked pivot
+        head.group.rotation.set(0, (+0.35 - 0.7 * dp) * sideSign, 0); // return to cocked pivot
 
         if (head.detachProgress >= 1.0) {
           head.detachProgress = 0;
@@ -867,9 +861,8 @@ function updateCrossBridges(dt) {
         head.recockProgress += dt * 8;
         var rp = Math.min(head.recockProgress, 1.0);
         
-        head.group.rotation.x = head.angle;
-        // Do a small wiggle on Z to visually represent the energy charge of recocking
-        head.group.rotation.z = (0.35 - Math.sin(rp * Math.PI) * 0.08) * sideSign;
+        // Do a small wiggle on Y to visually represent the energy charge of recocking
+        head.group.rotation.set(0, (-0.35 + Math.sin(rp * Math.PI) * 0.08) * sideSign, 0);
 
         if (head.recockProgress >= 1.0) {
           head.recockProgress = 0;
@@ -880,8 +873,7 @@ function updateCrossBridges(dt) {
 
       case XB_STATES.RIGOR:
         // Stuck — no ATP to detach. Heads remain on actin.
-        head.group.rotation.x = head.angle + 1.35 * angleSign;
-        head.group.rotation.z = -0.35 * sideSign;
+        head.group.rotation.set(0, 0.35 * sideSign, 0);
         
         if (phys.atpNormal) {
           // ATP restored! Transition to detaching
@@ -1335,9 +1327,7 @@ function resetSimulation() {
     
     // Reset rotations
     var sideSign = (head.restX < 0) ? 1 : -1;
-    head.group.rotation.x = head.angle;
-    head.group.rotation.z = 0.35 * sideSign;
-    head.group.rotation.y = 0;
+    head.group.rotation.set(0, -0.35 * sideSign, 0);
 
     // Reset colors
     setCrossBridgeColor(head, 0xfb923c, 0x4a2a00);
@@ -1430,14 +1420,12 @@ function animate() {
         setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
         
         // Rotate them to fully stroked state (reached and pulled)
-        head.group.rotation.x = head.angle + 1.35 * angleSign;
-        head.group.rotation.z = -0.35 * sideSign;
+        head.group.rotation.set(0, 0.35 * sideSign, 0);
       } else {
         // Detached and cocked
         head.state = XB_STATES.DETACHED_COCKED;
         setCrossBridgeColor(head, 0xfb923c, 0x4a2a00); // orange
-        head.group.rotation.x = head.angle;
-        head.group.rotation.z = 0.35 * sideSign;
+        head.group.rotation.set(0, -0.35 * sideSign, 0);
       }
     }
     
