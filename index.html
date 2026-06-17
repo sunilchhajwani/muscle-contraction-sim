@@ -451,11 +451,12 @@ function buildSarcomere() {
       head2Mesh.scale.set(1.0, 1.4, 1.0);
       headGroup.add(head2Mesh);
 
-      // Initial rotation: apply angle around local X-axis (0 or Math.PI)
-      // plus the initial cocked angle around Z
+      // Initial rotation: set ZXY order so Z (pivot) rotates along the filament axis
+      // and X (reach) rotates towards the actin thin filament.
       var sideSign = (hx < 0) ? 1 : -1;
+      headGroup.rotation.order = 'ZXY';
       headGroup.rotation.x = angle; // Initial orientation (pointing up/down)
-      headGroup.rotation.z = -0.35 * sideSign; // Initial cocked rotation
+      headGroup.rotation.z = 0.35 * sideSign; // Initial cocked rotation (tilted away from M-line)
 
       myosinHeads.push({
         group: headGroup,
@@ -791,7 +792,7 @@ function updateCrossBridges(dt) {
       case XB_STATES.DETACHED_COCKED:
         // Head is cocked, waiting for binding site to be exposed
         head.group.rotation.x = head.angle;
-        head.group.rotation.z = -0.35 * sideSign;
+        head.group.rotation.z = 0.35 * sideSign;
         
         if (caActive && Math.random() < dt * 8 * (phys.caConc / 10)) {
           // Attach to nearest thin filament
@@ -815,20 +816,20 @@ function updateCrossBridges(dt) {
         
         // Smoothly reach in Y-Z (rotate around X) to touch thin filament
         var sp = Math.min(head.strokeProgress, 1.0);
-        var targetTiltX = head.angle + 1.0 * angleSign;
+        var targetTiltX = head.angle + 1.35 * angleSign;
         head.group.rotation.x = head.angle + (targetTiltX - head.angle) * sp;
-        head.group.rotation.z = -0.35 * sideSign;
+        head.group.rotation.z = 0.35 * sideSign;
         
         attachedCount++;
         break;
 
       case XB_STATES.POWER_STROKE:
-        // Head pivots ~45° (rotate around Z), pulling actin toward M-line
+        // Head pivots ~45° along the long axis (rotate around Z), pulling actin toward M-line
         head.strokeProgress += dt * 6;
         var sp = Math.min(head.strokeProgress, 1.0);
         
-        head.group.rotation.x = head.angle + 1.0 * angleSign; // maintain reach
-        head.group.rotation.z = (-0.35 + 0.7 * sp) * sideSign; // pivot pull
+        head.group.rotation.x = head.angle + 1.35 * angleSign; // maintain reach
+        head.group.rotation.z = (0.35 - 0.7 * sp) * sideSign; // pivot pull (moves from cocked +0.35 to stroked -0.35)
 
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
@@ -850,8 +851,8 @@ function updateCrossBridges(dt) {
         head.detachProgress += dt * 10;
         var dp = Math.min(head.detachProgress, 1.0);
         
-        head.group.rotation.x = head.angle + 1.0 * (1.0 - dp) * angleSign; // retract reach
-        head.group.rotation.z = (+0.35 - 0.7 * dp) * sideSign; // return to cocked pivot
+        head.group.rotation.x = head.angle + 1.35 * (1.0 - dp) * angleSign; // retract reach
+        head.group.rotation.z = (-0.35 + 0.7 * dp) * sideSign; // return to cocked pivot
 
         if (head.detachProgress >= 1.0) {
           head.detachProgress = 0;
@@ -868,7 +869,7 @@ function updateCrossBridges(dt) {
         
         head.group.rotation.x = head.angle;
         // Do a small wiggle on Z to visually represent the energy charge of recocking
-        head.group.rotation.z = (-0.35 + Math.sin(rp * Math.PI) * 0.08) * sideSign;
+        head.group.rotation.z = (0.35 - Math.sin(rp * Math.PI) * 0.08) * sideSign;
 
         if (head.recockProgress >= 1.0) {
           head.recockProgress = 0;
@@ -879,8 +880,8 @@ function updateCrossBridges(dt) {
 
       case XB_STATES.RIGOR:
         // Stuck — no ATP to detach. Heads remain on actin.
-        head.group.rotation.x = head.angle + 1.0 * angleSign;
-        head.group.rotation.z = 0.35 * sideSign;
+        head.group.rotation.x = head.angle + 1.35 * angleSign;
+        head.group.rotation.z = -0.35 * sideSign;
         
         if (phys.atpNormal) {
           // ATP restored! Transition to detaching
@@ -1335,7 +1336,7 @@ function resetSimulation() {
     // Reset rotations
     var sideSign = (head.restX < 0) ? 1 : -1;
     head.group.rotation.x = head.angle;
-    head.group.rotation.z = -0.35 * sideSign;
+    head.group.rotation.z = 0.35 * sideSign;
     head.group.rotation.y = 0;
 
     // Reset colors
@@ -1429,14 +1430,14 @@ function animate() {
         setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00); // yellow
         
         // Rotate them to fully stroked state (reached and pulled)
-        head.group.rotation.x = head.angle + 1.0 * angleSign;
-        head.group.rotation.z = 0.35 * sideSign;
+        head.group.rotation.x = head.angle + 1.35 * angleSign;
+        head.group.rotation.z = -0.35 * sideSign;
       } else {
         // Detached and cocked
         head.state = XB_STATES.DETACHED_COCKED;
         setCrossBridgeColor(head, 0xfb923c, 0x4a2a00); // orange
         head.group.rotation.x = head.angle;
-        head.group.rotation.z = -0.35 * sideSign;
+        head.group.rotation.z = 0.35 * sideSign;
       }
     }
     
