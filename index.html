@@ -300,6 +300,10 @@
           <span class="legend-color" style="background: #fbbf24; box-shadow: 0 0 8px #fbbf24;"></span>
           <div><b>Calcium (Ca²⁺)</b>: Yellow spheres.</div>
         </div>
+        <div class="legend-item" onclick="highlightStructure('troponin')">
+          <span class="legend-color" style="background: #d946ef; box-shadow: 0 0 8px #d946ef;"></span>
+          <div><b>Troponin</b>: Magenta spheres on tropomyosin.</div>
+        </div>
         <div class="legend-item" onclick="highlightStructure('sr')">
           <span class="legend-color" style="background: #6366f1; box-shadow: 0 0 8px #6366f1;"></span>
           <div><b>Sarcoplasmic Retic.</b>: Torus (bottom).</div>
@@ -398,6 +402,7 @@ var thickFilaments = [];   // myosin rods
 var thinFilaments = [];     // actin helices
 var myosinHeads = [];       // {group, head1, head2, neck, headMaterial, state, targetThinIdx, restX, restY, restZ}
 var tropomyosinMeshes = []; // {mesh, thinIdx}
+var troponinComplexes = []; // {mesh, thinIdx, localPos, hasCalcium, side}
 var calciumIons = [];       // {mesh, vx, vy, vz, phase: 'releasing'|'binding'|'returning'}
 var srMesh, srReleasePos, hZoneMesh, hZoneLeftMesh, hZoneRightMesh;
 var aZoneMesh, aZoneOutline, hZoneOutline, hZoneLeftOutline, hZoneRightOutline, refLineL, refLineR;
@@ -496,6 +501,29 @@ class HelixCurve extends THREE.Curve {
 // ═══════════════════════════════════════════════════════════════
 
 function buildSarcomere() {
+  // Clean up existing calcium ions to prevent orphans/leaks
+  if (calciumIons) {
+    for (var j = calciumIons.length - 1; j >= 0; j--) {
+      var mesh = calciumIons[j].mesh;
+      if (mesh.parent) mesh.parent.remove(mesh);
+      scene.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) mesh.material.dispose();
+    }
+    calciumIons = [];
+  }
+
+  // Clean up existing troponin complexes to prevent leaks
+  if (troponinComplexes) {
+    for (var t = 0; t < troponinComplexes.length; t++) {
+      var mesh = troponinComplexes[t].mesh;
+      if (mesh.parent) mesh.parent.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) mesh.material.dispose();
+    }
+    troponinComplexes = [];
+  }
+
   // Clear old sarcomere objects recursively if they exist
   if (sarcomereGroup) {
     scene.remove(sarcomereGroup);
@@ -741,6 +769,55 @@ function buildSarcomere() {
       side: 'R', 
       yOffsetSign: yOffsetSign
     });
+
+    // Add 5 troponin complexes along thinL (active site regulation)
+    var numTroponins = 5;
+    for (var k = 0; k < numTroponins; k++) {
+      var tVal = 0.15 + (k / (numTroponins - 1)) * 0.7; // offset from ends to prevent clipping
+      var localPos = helixPath.getPoint(tVal);
+      
+      var tropoGeoSph = new THREE.SphereGeometry(0.065, 8, 8);
+      var tropoMatSph = new THREE.MeshPhongMaterial({ 
+        color: 0xd946ef, // vibrant magenta
+        emissive: 0x4a044e, 
+        shininess: 80 
+      });
+      var troponinMesh = new THREE.Mesh(tropoGeoSph, tropoMatSph);
+      troponinMesh.position.copy(localPos);
+      thinL.add(troponinMesh);
+      
+      troponinComplexes.push({
+        mesh: troponinMesh,
+        thinIdx: thinFilaments.length - 2,
+        localPos: localPos.clone(),
+        hasCalcium: false,
+        side: 'L'
+      });
+    }
+
+    // Add 5 troponin complexes along thinR
+    for (var k = 0; k < numTroponins; k++) {
+      var tVal = 0.15 + (k / (numTroponins - 1)) * 0.7;
+      var localPos = helixPath.getPoint(tVal);
+      
+      var tropoGeoSph = new THREE.SphereGeometry(0.065, 8, 8);
+      var tropoMatSph = new THREE.MeshPhongMaterial({ 
+        color: 0xd946ef, // vibrant magenta
+        emissive: 0x4a044e, 
+        shininess: 80 
+      });
+      var troponinMesh = new THREE.Mesh(tropoGeoSph, tropoMatSph);
+      troponinMesh.position.copy(localPos);
+      thinR.add(troponinMesh);
+      
+      troponinComplexes.push({
+        mesh: troponinMesh,
+        thinIdx: thinFilaments.length - 1,
+        localPos: localPos.clone(),
+        hasCalcium: false,
+        side: 'R'
+      });
+    }
   }
 
   // ── Reference / Outline Elements ──
@@ -935,17 +1012,31 @@ function makeTextSprite(text) {
 
 function spawnCalciumIon() {
   var geo = new THREE.SphereGeometry(0.1, 6, 4);
-  var mat = new THREE.MeshPhongMaterial({ color:0xfbbf24, emissive:0x8a6a00, shininess:100 });
+  var mat = new THREE.MeshPhongMaterial({ 
+    color: 0xfbbf24, 
+    emissive: 0x8a6a00, 
+    shininess: 100,
+    transparent: true,
+    opacity: 1.0
+  });
   var ion = new THREE.Mesh(geo, mat);
-  ion.position.copy(srReleasePos);
-  ion.position.x += (Math.random() - 0.5) * 3;
-  ion.position.z += (Math.random() - 0.5) * 3;
+
+  // Spawns from the left or right Sarcoplasmic Reticulum terminal cisternae
+  var isLeft = Math.random() < 0.5;
+  var spawnX = isLeft ? -4.5 : 4.5;
+  
+  ion.position.set(
+    spawnX + (Math.random() - 0.5) * 0.8,
+    srReleasePos.y + (Math.random() - 0.5) * 0.3,
+    0.2 + (Math.random() - 0.5) * 0.5
+  );
 
   var ionObj = {
     mesh: ion,
-    vx: (Math.random() - 0.5) * 2,
-    vy: Math.random() * 4 + 2,
-    vz: (Math.random() - 0.5) * 2,
+    // Inward horizontal velocity directed towards the center
+    vx: isLeft ? (Math.random() * 2.5 + 1.5) : -(Math.random() * 2.5 + 1.5),
+    vy: Math.random() * 5 + 3,
+    vz: (Math.random() - 0.5) * 1.5,
     phase: 'releasing',
     age: 0,
     bindingTarget: null,
@@ -957,13 +1048,11 @@ function spawnCalciumIon() {
 
 function updateCalciumIons(dt) {
   var caTarget = phys.caConc;
-  var desiredCount = Math.round(caTarget * 2); // scale ions to [Ca²⁺]
+  var desiredCount = Math.round(caTarget * 2); // scale ions to [Ca²⁺], max 20 ions
 
-  // Spawn ions when Ca²⁺ is high and releasing
-  if (phys.phase === 'CA_RELEASE' || phys.phase === 'CROSSBRIDGE' || phys.phase === 'CONTRACTION') {
-    while (calciumIons.length < desiredCount && Math.random() < 0.3) {
-      spawnCalciumIon();
-    }
+  // Spawn ions whenever count is below desired count (no phase restrictions)
+  while (calciumIons.length < desiredCount && Math.random() < 0.4) {
+    spawnCalciumIon();
   }
 
   for (var i = calciumIons.length - 1; i >= 0; i--) {
@@ -977,37 +1066,150 @@ function updateCalciumIons(dt) {
       ion.vy -= 5 * dt; // gravity-like
       // Move toward sarcomere center
       ion.mesh.position.x *= 0.98;
-      if (ion.age > 0.5 && Math.random() < 0.05) {
+      if (ion.age > 0.2) {
         ion.phase = 'binding';
       }
     } else if (ion.phase === 'binding') {
-      // Drift toward a thin filament / tropomyosin
-      if (!ion.bindingTarget && thinFilaments.length > 0) {
-        var idx = Math.floor(Math.random() * thinFilaments.length);
-        ion.bindingTarget = thinFilaments[idx];
+      // Find the nearest unoccupied troponin complex
+      if (!ion.bindingTarget && troponinComplexes.length > 0) {
+        var minDist = Infinity;
+        var nearestTp = null;
+        var ionWorldPos = new THREE.Vector3();
+        ion.mesh.getWorldPosition(ionWorldPos);
+        
+        for (var tc = 0; tc < troponinComplexes.length; tc++) {
+          var tpComplex = troponinComplexes[tc];
+          if (!tpComplex.hasCalcium) {
+            var tpWorldPos = new THREE.Vector3();
+            tpComplex.mesh.getWorldPosition(tpWorldPos);
+            
+            var dx = tpWorldPos.x - ionWorldPos.x;
+            var dy = tpWorldPos.y - ionWorldPos.y;
+            var dz = tpWorldPos.z - ionWorldPos.z;
+            var d = dx*dx + dy*dy + dz*dz;
+            if (d < minDist) {
+              minDist = d;
+              nearestTp = tpComplex;
+            }
+          }
+        }
+        
+        if (nearestTp) {
+          ion.bindingTarget = nearestTp;
+          nearestTp.hasCalcium = true; // reserve it
+        } else {
+          // If all are occupied, target a random one
+          var idx = Math.floor(Math.random() * troponinComplexes.length);
+          ion.bindingTarget = troponinComplexes[idx];
+        }
       }
+
       if (ion.bindingTarget) {
-        var tp = ion.bindingTarget.mesh.position;
-        ion.mesh.position.x += (tp.x - ion.mesh.position.x) * dt * 3;
-        ion.mesh.position.y += (tp.y - ion.mesh.position.y) * dt * 3;
-        ion.mesh.position.z += (tp.z - ion.mesh.position.z) * dt * 3;
+        var tpComplex = ion.bindingTarget;
+        var tpWorldPos = new THREE.Vector3();
+        tpComplex.mesh.getWorldPosition(tpWorldPos);
+        
+        // Drift toward nearest troponin sphere
+        ion.mesh.position.x += (tpWorldPos.x - ion.mesh.position.x) * dt * 5;
+        ion.mesh.position.y += (tpWorldPos.y - ion.mesh.position.y) * dt * 5;
+        ion.mesh.position.z += (tpWorldPos.z - ion.mesh.position.z) * dt * 5;
+
+        // Check if close enough to bind (within 0.25 units)
+        var dx = tpWorldPos.x - ion.mesh.position.x;
+        var dy = tpWorldPos.y - ion.mesh.position.y;
+        var dz = tpWorldPos.z - ion.mesh.position.z;
+        var dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        if (dist < 0.25) {
+          ion.phase = 'bound';
+          scene.remove(ion.mesh);
+          tpComplex.mesh.add(ion.mesh);
+          
+          // Position right at the center of the troponin sphere, slightly offset outwards
+          ion.mesh.position.set(0, 0, 0.08);
+          
+          // Visual feedback: scale up slightly and neon-glow
+          ion.mesh.scale.set(1.2, 1.2, 1.2);
+          ion.mesh.material.color.setHex(0xffffff); // bright white base
+          ion.mesh.material.emissive.setHex(0xfacc15); // neon yellow emissive glow
+          
+          // Change troponin color to signify calcium is bound (turns rose)
+          tpComplex.mesh.material.color.setHex(0xfb7185); // rose
+          tpComplex.mesh.material.emissive.setHex(0xe11d48); // glowing rose pink
+        }
       }
-      if (ion.age > 1.5) {
+      if (ion.age > 3.0 && ion.phase === 'binding') {
         ion.phase = 'returning';
-        ion.vx = (srReleasePos.x - ion.mesh.position.x) * 0.5;
+        if (ion.bindingTarget && ion.bindingTarget.hasCalcium) {
+          ion.bindingTarget.hasCalcium = false;
+        }
+        var targetSRX = ion.mesh.position.x < 0 ? -4.5 : 4.5;
+        ion.vx = (targetSRX - ion.mesh.position.x) * 0.5;
         ion.vy = (srReleasePos.y - ion.mesh.position.y) * 0.5;
+        ion.vz = (0.2 - ion.mesh.position.z) * 0.5;
+      }
+    } else if (ion.phase === 'bound') {
+      // Bound calcium ions slide with troponin. They only detach when stimulation is off.
+      if (phys.stimLevel < 5) {
+        if (Math.random() < dt * 2.0) {
+          var worldPos = new THREE.Vector3();
+          ion.mesh.getWorldPosition(worldPos);
+          
+          if (ion.bindingTarget) {
+            var tpComplex = ion.bindingTarget;
+            tpComplex.mesh.remove(ion.mesh);
+            tpComplex.hasCalcium = false;
+            
+            // Restore troponin default colors
+            tpComplex.mesh.material.color.setHex(0xd946ef); // magenta
+            tpComplex.mesh.material.emissive.setHex(0x4a044e); // default low glow
+          }
+          scene.add(ion.mesh);
+          ion.mesh.position.copy(worldPos);
+          
+          ion.phase = 'returning';
+          var targetSRX = ion.mesh.position.x < 0 ? -4.5 : 4.5;
+          ion.vx = (targetSRX - ion.mesh.position.x) * 0.8;
+          ion.vy = (srReleasePos.y - ion.mesh.position.y) * 0.8;
+          ion.vz = (0.2 - ion.mesh.position.z) * 0.8;
+          
+          // Restore standard yellow/emissive properties and scale
+          ion.mesh.scale.set(1.0, 1.0, 1.0);
+          ion.mesh.material.color.setHex(0xfbbf24);
+          ion.mesh.material.emissive.setHex(0x8a6a00);
+        }
       }
     } else if (ion.phase === 'returning') {
-      ion.mesh.position.x += ion.vx * dt;
-      ion.mesh.position.y += ion.vy * dt;
-      ion.mesh.position.z += ion.vz * dt * 0.5;
-      // Fade out as Ca²⁺ drops
-      if (phys.caConc < 0.5) {
-        ion.mesh.material.opacity = Math.max(0, ion.mesh.material.opacity - dt);
-        if (ion.mesh.material.opacity <= 0) {
-          scene.remove(ion.mesh);
-          calciumIons.splice(i, 1);
-          continue;
+      // Re-excite if stimulation is turned back on
+      if (phys.stimLevel > 5 && Math.random() < dt * 3.0) {
+        ion.phase = 'binding';
+        ion.age = 0;
+        ion.vx = 0; ion.vy = 0; ion.vz = 0;
+        ion.mesh.scale.set(1.0, 1.0, 1.0);
+        ion.mesh.material.color.setHex(0xfbbf24);
+        ion.mesh.material.emissive.setHex(0x8a6a00);
+        ion.mesh.material.opacity = 1.0;
+      } else {
+        ion.mesh.position.x += ion.vx * dt;
+        ion.mesh.position.y += ion.vy * dt;
+        ion.mesh.position.z += ion.vz * dt * 0.5;
+        
+        var targetSRX = ion.mesh.position.x < 0 ? -4.5 : 4.5;
+        var dx = targetSRX - ion.mesh.position.x;
+        var dy = srReleasePos.y - ion.mesh.position.y;
+        var dz = 0.2 - ion.mesh.position.z;
+        var distToSR = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        
+        if (distToSR < 1.0) {
+          ion.mesh.material.opacity = Math.max(0, ion.mesh.material.opacity - dt * 2.0);
+          if (ion.mesh.material.opacity <= 0) {
+            var mesh = ion.mesh;
+            if (mesh.parent) mesh.parent.remove(mesh);
+            scene.remove(mesh);
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+            calciumIons.splice(i, 1);
+            continue;
+          }
         }
       }
     }
@@ -1017,7 +1219,11 @@ function updateCalciumIons(dt) {
   if (phys.caConc < 0.3 && calciumIons.length > 5) {
     for (var j = calciumIons.length - 1; j >= 0 && j > 3; j--) {
       if (calciumIons[j].phase === 'returning') {
-        scene.remove(calciumIons[j].mesh);
+        var mesh = calciumIons[j].mesh;
+        if (mesh.parent) mesh.parent.remove(mesh);
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
         calciumIons.splice(j, 1);
       }
     }
@@ -1444,6 +1650,7 @@ function highlightStructure(type) {
     tropo: '🟥 Tropomyosin - red helical threads wrapping actin',
     head: '🟧 Myosin Heads - orange cross-bridges that cycle and pivot',
     ca: '🟨 Calcium Ions (Ca²⁺) - yellow floating balls released by SR',
+    troponin: '🟪 Troponin - magenta spheres on tropomyosin that bind Ca²⁺',
     sr: '🟪 Sarcoplasmic Reticulum - purple torus structure at the bottom'
   };
   if (names[type]) {
@@ -1492,7 +1699,29 @@ function flashMesh(type) {
     }
     setTimeout(function() {
       for (var j = 0; j < calciumIons.length; j++) {
-        calciumIons[j].mesh.material.emissive.setHex(0x8a6a00);
+        var ion = calciumIons[j];
+        if (ion.phase === 'bound') {
+          ion.mesh.material.emissive.setHex(0xfacc15); // keep neon yellow when bound
+        } else {
+          ion.mesh.material.emissive.setHex(0x8a6a00);
+        }
+      }
+    }, 1000);
+  } else if (type === 'troponin') {
+    // Highlight all troponin complexes (magenta spheres)
+    for (var j = 0; j < troponinComplexes.length; j++) {
+      troponinComplexes[j].mesh.material.emissive.setHex(0xfdf4ff); // glowing light magenta
+    }
+    setTimeout(function() {
+      for (var j = 0; j < troponinComplexes.length; j++) {
+        var tc = troponinComplexes[j];
+        if (tc.hasCalcium) {
+          tc.mesh.material.color.setHex(0xfb7185); // rose
+          tc.mesh.material.emissive.setHex(0xe11d48); // active rose glow
+        } else {
+          tc.mesh.material.color.setHex(0xd946ef); // magenta
+          tc.mesh.material.emissive.setHex(0x4a044e); // default glow
+        }
       }
     }, 1000);
   }
@@ -1708,7 +1937,11 @@ function resetSimulation() {
   }
   // Remove all calcium ions
   for (var j = calciumIons.length - 1; j >= 0; j--) {
-    scene.remove(calciumIons[j].mesh);
+    var mesh = calciumIons[j].mesh;
+    if (mesh.parent) mesh.parent.remove(mesh);
+    scene.remove(mesh);
+    if (mesh.geometry) mesh.geometry.dispose();
+    if (mesh.material) mesh.material.dispose();
     calciumIons.splice(j, 1);
   }
   showTip('↺ Simulation reset');
