@@ -364,6 +364,24 @@ function setCrossBridgeColor(head, colorHex, emissiveHex) {
   }
 }
 
+// Helix curve for tropomyosin wrapping actin
+function HelixCurve(length, radius, turns) {
+  THREE.Curve.call(this);
+  this.length = length;
+  this.radius = radius;
+  this.turns = turns;
+}
+HelixCurve.prototype = Object.create(THREE.Curve.prototype);
+HelixCurve.prototype.constructor = HelixCurve;
+HelixCurve.prototype.getPoint = function(t, optionalTarget) {
+  var point = optionalTarget || new THREE.Vector3();
+  var y = (t - 0.5) * this.length;
+  var angle = t * Math.PI * 2 * this.turns;
+  var x = this.radius * Math.cos(angle);
+  var z = this.radius * Math.sin(angle);
+  return point.set(x, y, z);
+};
+
 // ═══════════════════════════════════════════════════════════════
 // BUILD SARCOMERE STRUCTURE
 // ═══════════════════════════════════════════════════════════════
@@ -566,6 +584,11 @@ function buildSarcomere() {
   var thinGeo = new THREE.CylinderGeometry(0.1, 0.1, thinLen, 8);
   var thinMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x047857, shininess:50 });
 
+  // Tropomyosin ribbons (Glowing Neon Red) - Helical tube winding around actin
+  var helixPath = new HelixCurve(thinLen, 0.12, 4);
+  var tropoGeo = new THREE.TubeGeometry(helixPath, 64, 0.02, 6, false);
+  var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40 });
+
   for (var j = 0; j < thinPos.length; j++) {
     var ty = thinPos[j][0];
     var tz = thinPos[j][1];
@@ -582,37 +605,31 @@ function buildSarcomere() {
     sarcomereGroup.add(thinR);
     thinFilaments.push({ mesh: thinR, side: 'R', y: ty, z: tz, len: thinLen, startX: halfLen - thinLen, endX: halfLen });
 
-    // Determine Y direction of tropomyosin offset based on whether it is top (even j) or bottom (odd j) thin filament
+    // Determine direction of tropomyosin shift/rotation (top is 1, bottom is -1)
     var isTop = (j % 2 === 0);
     var yOffsetSign = isTop ? 1 : -1;
-    var tropoYOffset = yOffsetSign * 0.15;
 
-    // Tropomyosin ribbons (Glowing Neon Red)
-    var tropoGeo = new THREE.CylinderGeometry(0.04, 0.04, thinLen, 6);
-    var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40 });
+    // Add tropomyosin as a child of thinL (so it slides automatically with it)
     var tropoL = new THREE.Mesh(tropoGeo, tropoMat);
-    tropoL.rotation.z = Math.PI / 2;
-    tropoL.position.set(-halfLen + thinLen/2, ty + tropoYOffset, tz);
-    sarcomereGroup.add(tropoL);
+    thinL.add(tropoL);
+    tropoL.position.set(0, 0, 0);
+    tropoL.rotation.set(0, 0, 0);
     tropomyosinMeshes.push({ 
       mesh: tropoL, 
       thinIdx: thinFilaments.length - 2, 
       side: 'L', 
-      baseY: ty + tropoYOffset, 
-      baseZ: tz,
       yOffsetSign: yOffsetSign
     });
 
+    // Add tropomyosin as a child of thinR
     var tropoR = new THREE.Mesh(tropoGeo, tropoMat);
-    tropoR.rotation.z = Math.PI / 2;
-    tropoR.position.set(halfLen - thinLen/2, ty + tropoYOffset, tz);
-    sarcomereGroup.add(tropoR);
+    thinR.add(tropoR);
+    tropoR.position.set(0, 0, 0);
+    tropoR.rotation.set(0, 0, 0);
     tropomyosinMeshes.push({ 
       mesh: tropoR, 
       thinIdx: thinFilaments.length - 1, 
       side: 'R', 
-      baseY: ty + tropoYOffset, 
-      baseZ: tz,
       yOffsetSign: yOffsetSign
     });
   }
@@ -1122,15 +1139,14 @@ function updateVisuals(dt) {
     }
   }
 
-  // Move tropomyosin with thin filaments
+  // Move and rotate tropomyosin with calcium concentration
   for (var t = 0; t < tropomyosinMeshes.length; t++) {
     var tp = tropomyosinMeshes[t];
-    var thinRef = thinFilaments[tp.thinIdx];
-    if (thinRef) {
-      tp.mesh.position.x = thinRef.mesh.position.x;
-    }
     var caRatio = Math.min(phys.caConc / 5, 1);
-    tp.mesh.position.y = tp.baseY + tp.yOffsetSign * caRatio * 0.15;
+    // Rotate tropomyosin around the local Y-axis of the actin filament (conformational shift)
+    tp.mesh.rotation.y = tp.yOffsetSign * caRatio * 0.4; // 0.4 radians ~ 23 degrees shift
+    
+    // Update color
     var r = 0xfb, g = Math.round(0x71 + caRatio * 0x20), b = Math.round(0x85 - caRatio * 0x40);
     tp.mesh.material.color.setRGB(r/255, g/255, b/255);
   }
