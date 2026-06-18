@@ -161,6 +161,16 @@
       </div>
     </div>
 
+    <div class="ctrl-group">
+      <h3>Visible Pairs</h3>
+      <div class="toggle-row">
+        <button id="pairs-1">1 Pair</button>
+        <button id="pairs-2" class="active">2 Pairs</button>
+        <button id="pairs-3">3 Pairs</button>
+      </div>
+      <div class="hint">Adjust number of thick-thin filament units for better visibility. Rebuilds the model.</div>
+    </div>
+
     <div class="ref-section">
       <details>
         <summary>References & Physiology</summary>
@@ -258,6 +268,7 @@ var phys = {
   phaseDesc: 'Tropomyosin blocks sites',
   totalXb: 0,
   elapsed: 0,
+  numPairs: 2,          // default number of thick-thin filament pairs (1-3)
 };
 
 // Phase definitions
@@ -358,6 +369,37 @@ function setCrossBridgeColor(head, colorHex, emissiveHex) {
 // ═══════════════════════════════════════════════════════════════
 
 function buildSarcomere() {
+  // Clear old sarcomere objects recursively if they exist
+  if (sarcomereGroup) {
+    scene.remove(sarcomereGroup);
+    sarcomereGroup.traverse(function(node) {
+      if (node.geometry) node.geometry.dispose();
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material.forEach(function(mat) { mat.dispose(); });
+        } else {
+          node.material.dispose();
+        }
+      }
+    });
+  }
+
+  // Clear labels
+  if (labelSprites && labelSprites.length > 0) {
+    for (var l = 0; l < labelSprites.length; l++) {
+      scene.remove(labelSprites[l]);
+      if (labelSprites[l].material) labelSprites[l].material.dispose();
+      if (labelSprites[l].material.map) labelSprites[l].material.map.dispose();
+    }
+    labelSprites = [];
+  }
+
+  // Reset arrays
+  thickFilaments = [];
+  thinFilaments = [];
+  myosinHeads = [];
+  tropomyosinMeshes = [];
+
   sarcomereGroup = new THREE.Group();
   scene.add(sarcomereGroup);
 
@@ -365,23 +407,38 @@ function buildSarcomere() {
   var scale = 4.0;
   var halfLen = (phys.restingLength * scale) / 2; // 4.4 units
 
+  // Define vertical span based on number of pairs
+  var yMin = -0.5;
+  var yMax = 0.5;
+  if (phys.numPairs === 2) {
+    yMin = -2.1;
+    yMax = 2.1;
+  } else if (phys.numPairs === 3) {
+    yMin = -3.1;
+    yMax = 3.1;
+  }
+  var spanY = yMax - yMin;
+  var zHeight = spanY + 1.6;
+  var boxHeight = spanY + 1.2;
+  var boxDepth = 2.2;
+
   // Z-LINES — dense vertical plates (Glowing Silver-White)
-  var zGeo = new THREE.BoxGeometry(0.3, 7, 4);
+  var zGeo = new THREE.BoxGeometry(0.3, zHeight, 2.5);
   var zMat = new THREE.MeshPhongMaterial({ color:0xffffff, emissive:0x444444, shininess:80 });
 
   zLineL = new THREE.Mesh(zGeo, zMat);
-  zLineL.position.x = -halfLen;
+  zLineL.position.set(-halfLen, 0, 0.2);
   sarcomereGroup.add(zLineL);
 
   zLineR = new THREE.Mesh(zGeo, zMat);
-  zLineR.position.x = halfLen;
+  zLineR.position.set(halfLen, 0, 0.2);
   sarcomereGroup.add(zLineR);
 
   // M-LINE — central protein structure (Glowing Purple)
-  var mGeo = new THREE.BoxGeometry(0.25, 5, 3);
+  var mGeo = new THREE.BoxGeometry(0.25, zHeight - 1.0, 2.0);
   var mMat = new THREE.MeshPhongMaterial({ color:0x8b5cf6, emissive:0x4c1d95, shininess:60 });
   mLine = new THREE.Mesh(mGeo, mMat);
-  mLine.position.x = 0;
+  mLine.position.set(0, 0, 0.2);
   sarcomereGroup.add(mLine);
 
   // THICK FILAMENTS (MYOSIN) — rods centered on M-line (Glowing Deep Blue)
@@ -392,17 +449,44 @@ function buildSarcomere() {
   // Thin filaments anchored to Z-lines, extending toward center (4.0 units)
   var thinLen = 1.0 * scale; 
 
-  var thickPos = [
-    [0, 0],     // center row
-    [0, 2.8],   // top row
-    [0, -2.8],  // bottom row
-  ];
+  var thickPos = [];
+  var thinPos = [];
 
-  var thinPos = [
-    [0.5, 0.5],             // center row, front (offset in Y so they lie above thick in front view)
-    [2.8 + 0.5, 2.8 + 0.5], // top row, front
-    [-2.8 + 0.5, -2.8 + 0.5], // bottom row, front
-  ];
+  if (phys.numPairs === 1) {
+    thickPos = [
+      [0, 0]
+    ];
+    thinPos = [
+      [0.5, 0.4],
+      [-0.5, 0.4]
+    ];
+  } else if (phys.numPairs === 2) {
+    thickPos = [
+      [1.6, 0],
+      [-1.6, 0]
+    ];
+    thinPos = [
+      [2.1, 0.4],
+      [1.1, 0.4],
+      [-1.1, 0.4],
+      [-2.1, 0.4]
+    ];
+  } else {
+    // 3 pairs
+    thickPos = [
+      [2.6, 0],
+      [0, 0],
+      [-2.6, 0]
+    ];
+    thinPos = [
+      [3.1, 0.4],
+      [2.1, 0.4],
+      [0.5, 0.4],
+      [-0.5, 0.4],
+      [-2.1, 0.4],
+      [-3.1, 0.4]
+    ];
+  }
 
   // ── Build thick filaments with myosin heads ──
   for (var i = 0; i < thickPos.length; i++) {
@@ -415,7 +499,7 @@ function buildSarcomere() {
     sarcomereGroup.add(thick);
     thickFilaments.push({ mesh: thick, y: fy, z: fz, len: thickLen });
 
-    // Myosin heads (30 total, alternating up/down)
+    // Myosin heads (10 per thick filament, alternating up/down)
     var headCount = 10;
     for (var h = 0; h < headCount; h++) {
       var t = h / (headCount - 1); 
@@ -428,8 +512,6 @@ function buildSarcomere() {
       sarcomereGroup.add(headGroup);
 
       // Create the structural neck (cylinder) projecting along the Z-axis
-      // Height is 0.48, base of cylinder is at group (0,0,0) by offsetting center to 0.24.
-      // We rotate it by Math.PI / 2 around X so it projects along the local Z-axis.
       var neckGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.48, 8);
       var neckMat = new THREE.MeshPhongMaterial({ color: 0x94a3b8, emissive: 0x1e293b, shininess: 30 });
       var neckMesh = new THREE.Mesh(neckGeo, neckMat);
@@ -437,26 +519,27 @@ function buildSarcomere() {
       neckMesh.position.set(0, 0, 0.24);
       headGroup.add(neckMesh);
 
-      // Create the double heads (two adjacent spheres at the end of the neck, scaled in Z to make them oval/pear-shaped)
+      // Create the double heads (two adjacent spheres at the end of the neck)
       var headGeo = new THREE.SphereGeometry(0.1, 10, 8);
       var headMat = new THREE.MeshPhongMaterial({ color: 0xfb923c, emissive: 0x4a2a00, shininess: 80 });
       
       var head1Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head1 slightly in X (+0.06) and Y (+0.03) at the top of the neck (Z = 0.52)
       head1Mesh.position.set(0.06, 0.03, 0.52);
       head1Mesh.scale.set(1.0, 1.0, 1.4);
       headGroup.add(head1Mesh);
 
       var head2Mesh = new THREE.Mesh(headGeo, headMat);
-      // Offset head2 slightly in X (-0.06) and Y (-0.03) at the top of the neck (Z = 0.52)
       head2Mesh.position.set(-0.06, -0.03, 0.52);
       head2Mesh.scale.set(1.0, 1.0, 1.4);
       headGroup.add(head2Mesh);
 
-      // Initial rotation: point diagonally towards the thin filament (tilted 45 degrees up and forward) and cocked in Y
+      // Initial rotation: point diagonally towards top or bottom thin filament
       var sideSign = (hx < 0) ? 1 : -1;
+      var tiltSign = (h % 2 === 0) ? -1 : 1; // -1 tilts up, 1 tilts down
+      var tiltX = tiltSign * 0.785;
+      
       headGroup.rotation.order = 'YXZ';
-      headGroup.rotation.set(-0.785, -0.35 * sideSign, 0);
+      headGroup.rotation.set(tiltX, -0.35 * sideSign, 0);
 
       myosinHeads.push({
         group: headGroup,
@@ -469,8 +552,9 @@ function buildSarcomere() {
         restY: fy,
         restZ: fz,
         angle: angle,
+        tiltSign: tiltSign,
         state: XB_STATES.DETACHED_COCKED,
-        targetThinIdx: -1,
+        targetThinIdx: 2 * i + (h % 2 === 0 ? 0 : 1),
         strokeProgress: 0,
         detachProgress: 0,
         recockProgress: 0,
@@ -498,20 +582,39 @@ function buildSarcomere() {
     sarcomereGroup.add(thinR);
     thinFilaments.push({ mesh: thinR, side: 'R', y: ty, z: tz, len: thinLen, startX: halfLen - thinLen, endX: halfLen });
 
+    // Determine Y direction of tropomyosin offset based on whether it is top (even j) or bottom (odd j) thin filament
+    var isTop = (j % 2 === 0);
+    var yOffsetSign = isTop ? 1 : -1;
+    var tropoYOffset = yOffsetSign * 0.15;
+
     // Tropomyosin ribbons (Glowing Neon Red)
     var tropoGeo = new THREE.CylinderGeometry(0.04, 0.04, thinLen, 6);
     var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40, transparent:true, opacity:0.75 });
     var tropoL = new THREE.Mesh(tropoGeo, tropoMat);
     tropoL.rotation.z = Math.PI / 2;
-    tropoL.position.set(-halfLen + thinLen/2, ty + 0.18, tz);
+    tropoL.position.set(-halfLen + thinLen/2, ty + tropoYOffset, tz);
     sarcomereGroup.add(tropoL);
-    tropomyosinMeshes.push({ mesh: tropoL, thinIdx: thinFilaments.length - 2, side: 'L', baseY: ty + 0.18, baseZ: tz });
+    tropomyosinMeshes.push({ 
+      mesh: tropoL, 
+      thinIdx: thinFilaments.length - 2, 
+      side: 'L', 
+      baseY: ty + tropoYOffset, 
+      baseZ: tz,
+      yOffsetSign: yOffsetSign
+    });
 
     var tropoR = new THREE.Mesh(tropoGeo, tropoMat);
     tropoR.rotation.z = Math.PI / 2;
-    tropoR.position.set(halfLen - thinLen/2, ty + 0.18, tz);
+    tropoR.position.set(halfLen - thinLen/2, ty + tropoYOffset, tz);
     sarcomereGroup.add(tropoR);
-    tropomyosinMeshes.push({ mesh: tropoR, thinIdx: thinFilaments.length - 1, side: 'R', baseY: ty + 0.18, baseZ: tz });
+    tropomyosinMeshes.push({ 
+      mesh: tropoR, 
+      thinIdx: thinFilaments.length - 1, 
+      side: 'R', 
+      baseY: ty + tropoYOffset, 
+      baseZ: tz,
+      yOffsetSign: yOffsetSign
+    });
   }
 
   // ── Reference / Outline Elements ──
@@ -519,23 +622,24 @@ function buildSarcomere() {
   // STATIONARY REFERENCE GUIDES — dotted lines at resting Z-line positions (x = -5.0 and +5.0)
   var refMat = new THREE.LineDashedMaterial({ color: 0xa1a1aa, dashSize: 0.2, gapSize: 0.15, transparent: true, opacity: 0.4 });
   
+  var halfH = zHeight / 2;
   var refGeoL = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-5.0, -3.5, -2),
-    new THREE.Vector3(-5.0, 3.5, -2),
-    new THREE.Vector3(-5.0, 3.5, 2),
-    new THREE.Vector3(-5.0, -3.5, 2),
-    new THREE.Vector3(-5.0, -3.5, -2)
+    new THREE.Vector3(-5.0, -halfH, -1.0),
+    new THREE.Vector3(-5.0, halfH, -1.0),
+    new THREE.Vector3(-5.0, halfH, 1.4),
+    new THREE.Vector3(-5.0, -halfH, 1.4),
+    new THREE.Vector3(-5.0, -halfH, -1.0)
   ]);
   refLineL = new THREE.Line(refGeoL, refMat);
   refLineL.computeLineDistances();
   sarcomereGroup.add(refLineL);
 
   var refGeoR = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(5.0, -3.5, -2),
-    new THREE.Vector3(5.0, 3.5, -2),
-    new THREE.Vector3(5.0, 3.5, 2),
-    new THREE.Vector3(5.0, -3.5, 2),
-    new THREE.Vector3(5.0, -3.5, -2)
+    new THREE.Vector3(5.0, -halfH, -1.0),
+    new THREE.Vector3(5.0, halfH, -1.0),
+    new THREE.Vector3(5.0, halfH, 1.4),
+    new THREE.Vector3(5.0, -halfH, 1.4),
+    new THREE.Vector3(5.0, -halfH, -1.0)
   ]);
   refLineR = new THREE.Line(refGeoR, refMat);
   refLineR.computeLineDistances();
@@ -543,9 +647,9 @@ function buildSarcomere() {
 
   // A-ZONE indicator — centered purple box (constant width)
   var aZoneMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.05, side: THREE.DoubleSide });
-  var aZoneGeo = new THREE.BoxGeometry(thickLen, 6.8, 6.8);
+  var aZoneGeo = new THREE.BoxGeometry(thickLen, boxHeight, boxDepth);
   aZoneMesh = new THREE.Mesh(aZoneGeo, aZoneMat);
-  aZoneMesh.position.set(0, 0, 0);
+  aZoneMesh.position.set(0, 0, 0.2);
   sarcomereGroup.add(aZoneMesh);
 
   var aZoneEdges = new THREE.EdgesGeometry(aZoneGeo);
@@ -555,9 +659,9 @@ function buildSarcomere() {
 
   // H-ZONE indicator — shrinking yellow box
   var hZoneMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
-  var hZoneGeo = new THREE.BoxGeometry(thinLen, 6.9, 6.9);
+  var hZoneGeo = new THREE.BoxGeometry(thinLen, boxHeight + 0.05, boxDepth + 0.05);
   hZoneMesh = new THREE.Mesh(hZoneGeo, hZoneMat);
-  hZoneMesh.position.set(0, 0, 0);
+  hZoneMesh.position.set(0, 0, 0.2);
   sarcomereGroup.add(hZoneMesh);
 
   var hZoneEdges = new THREE.EdgesGeometry(hZoneGeo);
@@ -567,10 +671,10 @@ function buildSarcomere() {
 
   // I-BAND indicators — shrinking cyan boxes
   var iBandMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
-  var iBandGeoL = new THREE.BoxGeometry(thinLen, 6.9, 6.9);
+  var iBandGeoL = new THREE.BoxGeometry(thinLen, boxHeight + 0.05, boxDepth + 0.05);
   
   hZoneLeftMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
-  hZoneLeftMesh.position.set(-halfLen + thinLen/2, 0, 0);
+  hZoneLeftMesh.position.set(-halfLen + thinLen/2, 0, 0.2);
   sarcomereGroup.add(hZoneLeftMesh);
 
   var iBandEdges = new THREE.EdgesGeometry(iBandGeoL);
@@ -579,7 +683,7 @@ function buildSarcomere() {
   hZoneLeftMesh.add(hZoneLeftOutline);
 
   hZoneRightMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
-  hZoneRightMesh.position.set(halfLen - thinLen/2, 0, 0);
+  hZoneRightMesh.position.set(halfLen - thinLen/2, 0, 0.2);
   sarcomereGroup.add(hZoneRightMesh);
 
   hZoneRightOutline = new THREE.LineSegments(iBandEdges, iBandLineMat);
@@ -595,60 +699,79 @@ function buildSarcomere() {
   contractMat = new THREE.MeshBasicMaterial({ color: 0xfb7185, transparent: true, opacity: 0 }); 
   relaxMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0 }); 
 
+  var arrowY = yMax + 0.6;
+
   for (var k = 0; k < 2; k++) {
     var posX = -3.5 + k * 1.5;
     
     var cArrowL = new THREE.Mesh(arrowGeo, contractMat);
     cArrowL.rotation.z = -Math.PI / 2;
-    cArrowL.position.set(posX, 3.2, 0);
+    cArrowL.position.set(posX, arrowY, 0.2);
     contractingArrows.add(cArrowL);
 
     var rArrowL = new THREE.Mesh(arrowGeo, relaxMat);
     rArrowL.rotation.z = Math.PI / 2;
-    rArrowL.position.set(posX, 3.2, 0);
+    rArrowL.position.set(posX, arrowY, 0.2);
     relaxingArrows.add(rArrowL);
 
     var cArrowR = new THREE.Mesh(arrowGeo, contractMat);
     cArrowR.rotation.z = Math.PI / 2;
-    cArrowR.position.set(-posX, 3.2, 0);
+    cArrowR.position.set(-posX, arrowY, 0.2);
     contractingArrows.add(cArrowR);
 
     var rArrowR = new THREE.Mesh(arrowGeo, relaxMat);
     rArrowR.rotation.z = -Math.PI / 2;
-    rArrowR.position.set(-posX, 3.2, 0);
+    rArrowR.position.set(-posX, arrowY, 0.2);
     relaxingArrows.add(rArrowR);
   }
 
   // Create labels
-  createLabels(halfLen);
+  createLabels(halfLen, yMin, yMax);
 }
 
 function buildSarcoplasmicReticulum() {
+  if (srMesh) {
+    scene.remove(srMesh);
+    if (srMesh.geometry) srMesh.geometry.dispose();
+    if (srMesh.material) srMesh.material.dispose();
+  }
+
+  var yMin = -0.5;
+  if (phys.numPairs === 2) {
+    yMin = -2.1;
+  } else if (phys.numPairs === 3) {
+    yMin = -3.1;
+  }
+
   // SR represented as a semi-transparent structure above/below sarcomere
   var srGeo = new THREE.TorusGeometry(5, 0.4, 8, 32);
   var srMat = new THREE.MeshPhongMaterial({ color:0x6366f1, emissive:0x1a1a4a, transparent:true, opacity:0.25, shininess:20 });
   srMesh = new THREE.Mesh(srGeo, srMat);
   srMesh.rotation.x = Math.PI / 2;
-  srMesh.position.y = -4;
+  srMesh.position.set(0, yMin - 1.2, 0.2);
   scene.add(srMesh);
-  srReleasePos = new THREE.Vector3(0, -3, 0);
+  srReleasePos = new THREE.Vector3(0, yMin - 0.5, 0.2);
 }
 
 // ═══════════════════════════════════════════════════════════════
 // LABELS (text sprites)
 // ═══════════════════════════════════════════════════════════════
 
-function createLabels(halfLen) {
+function createLabels(halfLen, yMin, yMax) {
+  var labelTopY = yMax + 1.0;
+  var labelInnerTopY = yMax + 0.4;
+  var labelBottomY = yMin - 0.8;
+
   var labels = [
-    { text: 'Z-line', x: -halfLen - 0.8, y: 3.8, z: 0 },
-    { text: 'Z-line', x: halfLen + 0.8, y: 3.8, z: 0 },
-    { text: 'M-line', x: 0, y: 3.8, z: 0 },
-    { text: 'Myosin\n(thick)', x: 0, y: -3, z: 3 },
-    { text: 'Actin\n(thin)', x: -halfLen + 1.5, y: -3, z: -3 },
-    { text: 'H-zone', x: 0, y: 3.2, z: 3.5 },
-    { text: 'I-band', x: -halfLen + 1, y: 3.2, z: -3.5 },
-    { text: 'I-band', x: halfLen - 1, y: 3.2, z: -3.5 },
-    { text: 'A-band', x: 0, y: -3.5, z: 0 },
+    { text: 'Z-line', x: -halfLen - 0.8, y: labelTopY, z: 0.2 },
+    { text: 'Z-line', x: halfLen + 0.8, y: labelTopY, z: 0.2 },
+    { text: 'M-line', x: 0, y: labelTopY, z: 0.2 },
+    { text: 'Myosin\n(thick)', x: 0, y: labelBottomY + 0.2, z: 2.0 },
+    { text: 'Actin\n(thin)', x: -halfLen + 1.5, y: labelBottomY + 0.2, z: -1.0 },
+    { text: 'H-zone', x: 0, y: labelInnerTopY, z: 1.5 },
+    { text: 'I-band', x: -halfLen + 1, y: labelInnerTopY, z: -1.5 },
+    { text: 'I-band', x: halfLen - 1, y: labelInnerTopY, z: -1.5 },
+    { text: 'A-band', x: 0, y: labelBottomY - 0.3, z: 0.2 },
   ];
   for (var i = 0; i < labels.length; i++) {
     var sprite = makeTextSprite(labels[i].text);
@@ -786,18 +909,15 @@ function updateCrossBridges(dt) {
   for (var i = 0; i < myosinHeads.length; i++) {
     var head = myosinHeads[i];
     var sideSign = (head.restX < 0) ? 1 : -1;
-    var angleSign = (head.angle === 0) ? 1 : -1;
+    var tiltX = head.tiltSign * 0.785;
 
     switch (head.state) {
       case XB_STATES.DETACHED_COCKED:
         // Head is cocked, waiting for binding site to be exposed
-        head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+        head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
         
         if (caActive && Math.random() < dt * 8 * (phys.caConc / 10)) {
-          // Attach to nearest thin filament
-          var nearestThin = findNearestThin(head.group.position);
-          if (nearestThin >= 0) {
-            head.targetThinIdx = nearestThin;
+          if (head.targetThinIdx >= 0) {
             head.state = XB_STATES.ATTACHED;
             setCrossBridgeColor(head, 0x34d399, 0x0a3a1a); // green
           }
@@ -814,7 +934,7 @@ function updateCrossBridges(dt) {
         }
         
         // Remain pointing at thin filament
-        head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+        head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
         
         attachedCount++;
         break;
@@ -824,11 +944,11 @@ function updateCrossBridges(dt) {
         head.strokeProgress += dt * 6;
         var sp = Math.min(head.strokeProgress, 1.0);
         
-        head.group.rotation.set(-0.785, (-0.35 + 0.7 * sp) * sideSign, 0); // pivot pull along X
+        head.group.rotation.set(tiltX, (-0.35 + 0.7 * sp) * sideSign, 0); // pivot pull along X
 
         if (head.strokeProgress >= 1.0) {
           head.strokeProgress = 0;
-          phys.atpConsumed += 0.5; // ADP + Pi released
+          phys.atpConsumed += 0.5 * (3.0 / phys.numPairs); // ADP + Pi released (scaled)
           if (phys.atpNormal) {
             head.state = XB_STATES.DETACHING;
             setCrossBridgeColor(head, 0x22d3ee, 0x003a3a); // cyan
@@ -846,12 +966,12 @@ function updateCrossBridges(dt) {
         head.detachProgress += dt * 10;
         var dp = Math.min(head.detachProgress, 1.0);
         
-        head.group.rotation.set(-0.785, (+0.35 - 0.7 * dp) * sideSign, 0); // return to cocked pivot
+        head.group.rotation.set(tiltX, (+0.35 - 0.7 * dp) * sideSign, 0); // return to cocked pivot
 
         if (head.detachProgress >= 1.0) {
           head.detachProgress = 0;
           head.state = XB_STATES.RECOCKING;
-          phys.atpConsumed += 0.5; // ATP hydrolyzed
+          phys.atpConsumed += 0.5 * (3.0 / phys.numPairs); // ATP hydrolyzed (scaled)
           setCrossBridgeColor(head, 0x94a3b8, 0x1a1a1a); // gray
         }
         break;
@@ -862,7 +982,7 @@ function updateCrossBridges(dt) {
         var rp = Math.min(head.recockProgress, 1.0);
         
         // Do a small wiggle on Y to visually represent the energy charge of recocking
-        head.group.rotation.set(-0.785, (-0.35 + Math.sin(rp * Math.PI) * 0.08) * sideSign, 0);
+        head.group.rotation.set(tiltX, (-0.35 + Math.sin(rp * Math.PI) * 0.08) * sideSign, 0);
 
         if (head.recockProgress >= 1.0) {
           head.recockProgress = 0;
@@ -873,7 +993,7 @@ function updateCrossBridges(dt) {
 
       case XB_STATES.RIGOR:
         // Stuck — no ATP to detach. Heads remain on actin.
-        head.group.rotation.set(-0.785, 0.35 * sideSign, 0);
+        head.group.rotation.set(tiltX, 0.35 * sideSign, 0);
         
         if (phys.atpNormal) {
           // ATP restored! Transition to detaching
@@ -1010,7 +1130,7 @@ function updateVisuals(dt) {
       tp.mesh.position.x = thinRef.mesh.position.x;
     }
     var caRatio = Math.min(phys.caConc / 5, 1);
-    tp.mesh.position.y = tp.baseY + caRatio * 0.2;
+    tp.mesh.position.y = tp.baseY + tp.yOffsetSign * caRatio * 0.15;
     var r = 0xfb, g = Math.round(0x71 + caRatio * 0x20), b = Math.round(0x85 - caRatio * 0x40);
     tp.mesh.material.color.setRGB(r/255, g/255, b/255);
   }
@@ -1277,6 +1397,21 @@ function setupControls() {
     document.getElementById('label-btn').classList.remove('active');
   });
 
+  function changePairs(num) {
+    if (phys.numPairs === num) return;
+    phys.numPairs = num;
+    document.getElementById('pairs-1').classList.toggle('active', num === 1);
+    document.getElementById('pairs-2').classList.toggle('active', num === 2);
+    document.getElementById('pairs-3').classList.toggle('active', num === 3);
+    buildSarcomere();
+    buildSarcoplasmicReticulum();
+    resetSimulation();
+  }
+
+  document.getElementById('pairs-1').addEventListener('click', function() { changePairs(1); });
+  document.getElementById('pairs-2').addEventListener('click', function() { changePairs(2); });
+  document.getElementById('pairs-3').addEventListener('click', function() { changePairs(3); });
+
   // Mouse drag for camera orbit
   var canvasEl = renderer.domElement;
   canvasEl.addEventListener('mousedown', function(e) {
@@ -1327,7 +1462,8 @@ function resetSimulation() {
     
     // Reset rotations
     var sideSign = (head.restX < 0) ? 1 : -1;
-    head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+    var tiltX = head.tiltSign * 0.785;
+    head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
 
     // Reset colors
     setCrossBridgeColor(head, 0xfb923c, 0x4a2a00);
@@ -1380,14 +1516,14 @@ function animate() {
     phys.caConc = 0.1 + (phys.stimLevel / 100) * 9.9;
     
     if (phys.atpNormal) {
-      phys.totalXb = Math.round((phys.stimLevel / 100) * 30);
+      phys.totalXb = Math.round((phys.stimLevel / 100) * myosinHeads.length);
       phys.sarcomereLength = 2.2 - (2.2 - 1.6) * (phys.stimLevel / 100);
     } else {
       // Rigor mortis in pause
-      phys.totalXb = 30;
+      phys.totalXb = myosinHeads.length;
       phys.sarcomereLength = 1.6;
     }
-    phys.force = phys.totalXb * 0.8;
+    phys.force = (phys.totalXb / myosinHeads.length) * 24.0;
     
     // Determine phase for paused state
     if (phys.caConc < 0.3) {
@@ -1399,7 +1535,7 @@ function animate() {
     } else if (phys.caConc < 3) {
       phys.phase = 'CA_RELEASE';
       phys.phaseDesc = 'SR releases calcium ions';
-    } else if (phys.totalXb > 0 && phys.totalXb < 15) {
+    } else if (phys.totalXb > 0 && phys.totalXb < myosinHeads.length * 0.5) {
       phys.phase = 'CROSSBRIDGE';
       phys.phaseDesc = 'Myosin heads cycling';
     } else {
@@ -1412,6 +1548,7 @@ function animate() {
     for (var i = 0; i < myosinHeads.length; i++) {
       var head = myosinHeads[i];
       var sideSign = (head.restX < 0) ? 1 : -1;
+      var tiltX = head.tiltSign * 0.785;
       
       // Calculate a phase for this head based on the stimulation slider value.
       // Offset each head index so they cycle asynchronously (like a wave).
@@ -1422,36 +1559,36 @@ function animate() {
         // At 0% stimulation, all heads are detached and cocked
         head.state = XB_STATES.DETACHED_COCKED;
         setCrossBridgeColor(head, 0xfb923c, 0x4a2a00); // orange
-        head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+        head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
       } else {
         // Cycle states based on phase theta
         if (theta < 0.2 * Math.PI) {
           // Attached (Green)
           head.state = XB_STATES.ATTACHED;
           setCrossBridgeColor(head, 0x34d399, 0x0a3a1a);
-          head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+          head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
         } else if (theta < 0.9 * Math.PI) {
           // Power Stroke (Yellow) - pivot pulling
           head.state = XB_STATES.POWER_STROKE;
           setCrossBridgeColor(head, 0xfbbf24, 0x4a3a00);
           var progress = (theta - 0.2 * Math.PI) / (0.7 * Math.PI);
-          head.group.rotation.set(-0.785, (-0.35 + 0.7 * progress) * sideSign, 0);
+          head.group.rotation.set(tiltX, (-0.35 + 0.7 * progress) * sideSign, 0);
         } else if (theta < 1.3 * Math.PI) {
           // Detaching (Cyan) - returning
           head.state = XB_STATES.DETACHING;
           setCrossBridgeColor(head, 0x22d3ee, 0x003a3a);
           var progress = (theta - 0.9 * Math.PI) / (0.4 * Math.PI);
-          head.group.rotation.set(-0.785, (+0.35 - 0.7 * progress) * sideSign, 0);
+          head.group.rotation.set(tiltX, (+0.35 - 0.7 * progress) * sideSign, 0);
         } else if (theta < 1.7 * Math.PI) {
           // Recocking (Gray)
           head.state = XB_STATES.RECOCKING;
           setCrossBridgeColor(head, 0x94a3b8, 0x1a1a1a);
-          head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+          head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
         } else {
           // Detached Cocked (Orange)
           head.state = XB_STATES.DETACHED_COCKED;
           setCrossBridgeColor(head, 0xfb923c, 0x4a2a00);
-          head.group.rotation.set(-0.785, -0.35 * sideSign, 0);
+          head.group.rotation.set(tiltX, -0.35 * sideSign, 0);
         }
       }
     }
