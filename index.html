@@ -97,8 +97,73 @@
     animation: pulse-glowing 2s infinite;
     transition: transform 0.2s, background-color 0.2s;
   }
-  #start-btn:hover {
-    transform: scale(1.05);
+  #guide-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 280px;
+    background: rgba(12, 12, 16, 0.85);
+    border: 1px solid rgba(63, 63, 70, 0.4);
+    border-radius: 16px;
+    padding: 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #guide-panel h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    border-bottom: 1px solid rgba(63, 63, 70, 0.3);
+    padding-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  #guide-panel h4 {
+    font-size: 10px;
+    font-weight: 700;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .guide-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #e4e4e7;
+    line-height: 1.4;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .legend-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(2px);
+  }
+  .legend-color {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .event-desc {
+    background: rgba(9, 9, 11, 0.6);
+    border-left: 3px solid #34d399;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #a1a1aa;
   }
 </style>
 </head>
@@ -207,6 +272,48 @@
         <div class="phase-desc" id="hud-phase-desc">Tropomyosin blocks sites</div>
       </div>
     </div>
+
+    <!-- Interactive Study Guide & Legend -->
+    <div id="guide-panel">
+      <h3>📘 Study Guide & Legend</h3>
+      
+      <div class="guide-section">
+        <div style="font-size: 11px; color: #a1a1aa; line-height: 1.3; margin-bottom: 2px;">Click a structural element to locate & flash it in 3D:</div>
+        
+        <div class="legend-item" onclick="highlightStructure('thick')">
+          <span class="legend-color" style="background: #3b82f6; box-shadow: 0 0 8px #3b82f6;"></span>
+          <div><b>Myosin (Thick)</b>: Center blue rods.</div>
+        </div>
+        <div class="legend-item" onclick="highlightStructure('thin')">
+          <span class="legend-color" style="background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+          <div><b>Actin (Thin)</b>: Green filaments.</div>
+        </div>
+        <div class="legend-item" onclick="highlightStructure('tropo')">
+          <span class="legend-color" style="background: #ef4444; box-shadow: 0 0 8px #ef4444;"></span>
+          <div><b>Tropomyosin</b>: Red helical wrapping.</div>
+        </div>
+        <div class="legend-item" onclick="highlightStructure('head')">
+          <span class="legend-color" style="background: #fb923c; box-shadow: 0 0 8px #fb923c;"></span>
+          <div><b>Myosin Heads</b>: Orange cross-bridges.</div>
+        </div>
+        <div class="legend-item" onclick="highlightStructure('ca')">
+          <span class="legend-color" style="background: #fbbf24; box-shadow: 0 0 8px #fbbf24;"></span>
+          <div><b>Calcium (Ca²⁺)</b>: Yellow spheres.</div>
+        </div>
+        <div class="legend-item" onclick="highlightStructure('sr')">
+          <span class="legend-color" style="background: #6366f1; box-shadow: 0 0 8px #6366f1;"></span>
+          <div><b>Sarcoplasmic Retic.</b>: Torus (bottom).</div>
+        </div>
+      </div>
+
+      <div class="guide-section" style="margin-top: 6px;">
+        <h4 style="font-size: 11px; font-weight: 700; color: #a1a1aa; text-transform: uppercase; letter-spacing: 1px;">Current Physiological Event</h4>
+        <div id="guide-event-title" style="font-size: 13px; font-weight: 700; color: #34d399; margin-top: 2px;">RESTING</div>
+        <div id="guide-event-desc" class="event-desc">
+          Calcium is low. Tropomyosin is blocking actin binding sites.
+        </div>
+      </div>
+    </div>
     <div class="hud-bottom">
       <div class="force-chart-container">
         <div class="force-label">Force Trace (mN vs time)</div>
@@ -286,6 +393,7 @@ var PHASES = {
 // ═══════════════════════════════════════════════════════════════
 
 var sarcomereGroup, zLineL, zLineR, mLine;
+var thickMat, thinMat, tropoMat;
 var thickFilaments = [];   // myosin rods
 var thinFilaments = [];     // actin helices
 var myosinHeads = [];       // {group, head1, head2, neck, headMaterial, state, targetThinIdx, restX, restY, restZ}
@@ -463,7 +571,7 @@ function buildSarcomere() {
   // THICK FILAMENTS (MYOSIN) — rods centered on M-line (Glowing Deep Blue)
   var thickLen = 1.6 * scale; // 1.6µm → A-band width
   var thickGeo = new THREE.CylinderGeometry(0.28, 0.28, thickLen, 12);
-  var thickMat = new THREE.MeshPhongMaterial({ color:0x3b82f6, emissive:0x1d4ed8, shininess:70 });
+  thickMat = new THREE.MeshPhongMaterial({ color:0x3b82f6, emissive:0x1d4ed8, shininess:70 });
 
   // Thin filaments anchored to Z-lines, extending toward center (4.0 units)
   var thinLen = 1.0 * scale; 
@@ -583,12 +691,12 @@ function buildSarcomere() {
 
   // ── Build thin filaments (actin) (Glowing Emerald Green) ──
   var thinGeo = new THREE.CylinderGeometry(0.1, 0.1, thinLen, 8);
-  var thinMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x047857, shininess:50 });
+  thinMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x047857, shininess:50 });
 
   // Tropomyosin ribbons (Glowing Neon Red) - Helical tube winding around actin
   var helixPath = new HelixCurve(thinLen, 0.12, 4);
   var tropoGeo = new THREE.TubeGeometry(helixPath, 64, 0.02, 6, false);
-  var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40 });
+  tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40 });
 
   for (var j = 0; j < thinPos.length; j++) {
     var ty = thinPos[j][0];
@@ -1279,6 +1387,118 @@ function drawForceTrace() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// STUDY GUIDE & LEGEND HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+var PHASE_EXPLAINERS = {
+  RESTING: {
+    title: 'Resting State (No Contraction)',
+    desc: 'The muscle is at rest. Calcium levels are low. The 🟥 <b>tropomyosin helix</b> blocks the binding sites on 🟩 <b>actin</b>, preventing the 🟧 <b>myosin heads</b> from attaching.',
+    color: '#94a3b8'
+  },
+  EXCITATION: {
+    title: 'Excitation (Action Potential)',
+    desc: 'An action potential has arrived. This electrical signal stimulates the cell and triggers the 🟪 <b>Sarcoplasmic Reticulum</b> to start releasing calcium.',
+    color: '#22d3ee'
+  },
+  CA_RELEASE: {
+    title: 'Calcium Release',
+    desc: '🟨 <b>Calcium ions (Ca²⁺)</b> flood the cell from the Sarcoplasmic Reticulum, diffusing towards the green actin filaments to bind with troponin.',
+    color: '#fbbf24'
+  },
+  CROSSBRIDGE: {
+    title: 'Cross-Bridge Formation',
+    desc: 'Calcium binds to troponin, causing the 🟥 <b>tropomyosin helix</b> to rotate (conformational shift). This exposes the binding sites, allowing 🟧 <b>myosin heads</b> to bind to 🟩 <b>actin</b>.',
+    color: '#34d399'
+  },
+  CONTRACTION: {
+    title: 'Power Stroke & Contraction',
+    desc: 'The 🟧 <b>myosin heads</b> pivot (using ATP energy), pulling the 🟩 <b>actin filaments</b> towards the center M-line. The sarcomere shortens (2.2 → 1.6 µm), generating tension.',
+    color: '#fb7185'
+  },
+  RELAXATION: {
+    title: 'Relaxation & Ca²⁺ Reuptake',
+    desc: 'Stimulation has stopped. The SERCA pump actively transports 🟨 <b>calcium</b> back into the 🟪 <b>Sarcoplasmic Reticulum</b>. Tropomyosin rotates back to block the sites, causing relaxation.',
+    color: '#22d3ee'
+  }
+};
+
+function updateGuidePanel() {
+  var expl = PHASE_EXPLAINERS[phys.phase];
+  if (expl) {
+    var titleEl = document.getElementById('guide-event-title');
+    var descEl = document.getElementById('guide-event-desc');
+    if (titleEl && descEl) {
+      titleEl.textContent = expl.title;
+      titleEl.style.color = expl.color;
+      descEl.innerHTML = expl.desc;
+      descEl.style.borderLeftColor = expl.color;
+    }
+  }
+}
+
+function highlightStructure(type) {
+  var names = {
+    thick: '🟦 Thick Filament (Myosin) - center blue cylinders',
+    thin: '🟩 Thin Filament (Actin) - green cylinders wrapped by tropomyosin',
+    tropo: '🟥 Tropomyosin - red helical threads wrapping actin',
+    head: '🟧 Myosin Heads - orange cross-bridges that cycle and pivot',
+    ca: '🟨 Calcium Ions (Ca²⁺) - yellow floating balls released by SR',
+    sr: '🟪 Sarcoplasmic Reticulum - purple torus structure at the bottom'
+  };
+  if (names[type]) {
+    showTip('🔍 Identified: ' + names[type], 5000);
+    flashMesh(type);
+  }
+}
+
+function flashMesh(type) {
+  if (type === 'thick' && thickMat) {
+    var base = 0x1d4ed8;
+    thickMat.emissive.setHex(0x93c5fd); // bright sky blue
+    setTimeout(function() { thickMat.emissive.setHex(base); }, 1000);
+  } else if (type === 'thin' && thinMat) {
+    var base = 0x047857;
+    thinMat.emissive.setHex(0xa7f3d0); // bright emerald
+    setTimeout(function() { thinMat.emissive.setHex(base); }, 1000);
+  } else if (type === 'tropo' && tropoMat) {
+    var base = 0x991b1b;
+    tropoMat.emissive.setHex(0xfecaca); // bright red
+    setTimeout(function() { tropoMat.emissive.setHex(base); }, 1000);
+  } else if (type === 'sr' && srMesh) {
+    var base = 0x1a1a4a;
+    srMesh.material.emissive.setHex(0xc7d2fe); // bright indigo
+    setTimeout(function() { srMesh.material.emissive.setHex(base); }, 1000);
+  } else if (type === 'head') {
+    // Highlight all myosin heads
+    for (var i = 0; i < myosinHeads.length; i++) {
+      myosinHeads[i].headMaterial.emissive.setHex(0xffedd5); // bright orange
+    }
+    setTimeout(function() {
+      for (var i = 0; i < myosinHeads.length; i++) {
+        var state = myosinHeads[i].state;
+        if (state === XB_STATES.DETACHED_COCKED) setCrossBridgeColor(myosinHeads[i], 0xfb923c, 0x4a2a00);
+        else if (state === XB_STATES.ATTACHED) setCrossBridgeColor(myosinHeads[i], 0x34d399, 0x0a3a1a);
+        else if (state === XB_STATES.POWER_STROKE) setCrossBridgeColor(myosinHeads[i], 0xfbbf24, 0x4a3a00);
+        else if (state === XB_STATES.DETACHING) setCrossBridgeColor(myosinHeads[i], 0x22d3ee, 0x003a3a);
+        else if (state === XB_STATES.RECOCKING) setCrossBridgeColor(myosinHeads[i], 0x94a3b8, 0x1a1a1a);
+        else if (state === XB_STATES.RIGOR) setCrossBridgeColor(myosinHeads[i], 0xfb7185, 0x3a0a1a);
+      }
+    }, 1000);
+  } else if (type === 'ca') {
+    // Highlight all active calcium ions
+    for (var j = 0; j < calciumIons.length; j++) {
+      calciumIons[j].mesh.material.emissive.setHex(0xfef08a); // bright yellow
+    }
+    setTimeout(function() {
+      for (var j = 0; j < calciumIons.length; j++) {
+        calciumIons[j].mesh.material.emissive.setHex(0x8a6a00);
+      }
+    }, 1000);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // HUD UPDATE
 // ═══════════════════════════════════════════════════════════════
 
@@ -1314,6 +1534,7 @@ function updateHUD() {
   document.getElementById('stat-aband').textContent = thickLenUm.toFixed(2);
 
   document.getElementById('stat-time').textContent = phys.elapsed.toFixed(1) + 's';
+  updateGuidePanel();
 }
 
 // ═══════════════════════════════════════════════════════════════
