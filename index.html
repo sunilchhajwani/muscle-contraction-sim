@@ -365,22 +365,23 @@ function setCrossBridgeColor(head, colorHex, emissiveHex) {
 }
 
 // Helix curve for tropomyosin wrapping actin
-function HelixCurve(length, radius, turns) {
-  THREE.Curve.call(this);
-  this.length = length;
-  this.radius = radius;
-  this.turns = turns;
+class HelixCurve extends THREE.Curve {
+  constructor(length, radius, turns) {
+    super();
+    this.length = length;
+    this.radius = radius;
+    this.turns = turns;
+  }
+
+  getPoint(t, optionalTarget) {
+    var point = optionalTarget || new THREE.Vector3();
+    var y = (t - 0.5) * this.length;
+    var angle = t * Math.PI * 2 * this.turns;
+    var x = this.radius * Math.cos(angle);
+    var z = this.radius * Math.sin(angle);
+    return point.set(x, y, z);
+  }
 }
-HelixCurve.prototype = Object.create(THREE.Curve.prototype);
-HelixCurve.prototype.constructor = HelixCurve;
-HelixCurve.prototype.getPoint = function(t, optionalTarget) {
-  var point = optionalTarget || new THREE.Vector3();
-  var y = (t - 0.5) * this.length;
-  var angle = t * Math.PI * 2 * this.turns;
-  var x = this.radius * Math.cos(angle);
-  var z = this.radius * Math.sin(angle);
-  return point.set(x, y, z);
-};
 
 // ═══════════════════════════════════════════════════════════════
 // BUILD SARCOMERE STRUCTURE
