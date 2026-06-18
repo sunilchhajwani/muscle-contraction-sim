@@ -564,7 +564,7 @@ function buildSarcomere() {
 
   // ── Build thin filaments (actin) (Glowing Emerald Green) ──
   var thinGeo = new THREE.CylinderGeometry(0.1, 0.1, thinLen, 8);
-  var thinMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x047857, shininess:50, transparent:true, opacity:0.95 });
+  var thinMat = new THREE.MeshPhongMaterial({ color:0x10b981, emissive:0x047857, shininess:50 });
 
   for (var j = 0; j < thinPos.length; j++) {
     var ty = thinPos[j][0];
@@ -589,7 +589,7 @@ function buildSarcomere() {
 
     // Tropomyosin ribbons (Glowing Neon Red)
     var tropoGeo = new THREE.CylinderGeometry(0.04, 0.04, thinLen, 6);
-    var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40, transparent:true, opacity:0.75 });
+    var tropoMat = new THREE.MeshPhongMaterial({ color:0xef4444, emissive:0x991b1b, shininess:40 });
     var tropoL = new THREE.Mesh(tropoGeo, tropoMat);
     tropoL.rotation.z = Math.PI / 2;
     tropoL.position.set(-halfLen + thinLen/2, ty + tropoYOffset, tz);
@@ -646,31 +646,31 @@ function buildSarcomere() {
   sarcomereGroup.add(refLineR);
 
   // A-ZONE indicator — centered purple box (constant width)
-  var aZoneMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.05, side: THREE.DoubleSide });
+  var aZoneMat = new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false });
   var aZoneGeo = new THREE.BoxGeometry(thickLen, boxHeight, boxDepth);
   aZoneMesh = new THREE.Mesh(aZoneGeo, aZoneMat);
   aZoneMesh.position.set(0, 0, 0.2);
   sarcomereGroup.add(aZoneMesh);
 
   var aZoneEdges = new THREE.EdgesGeometry(aZoneGeo);
-  var aZoneLineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.2 });
+  var aZoneLineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.2, depthWrite: false });
   aZoneOutline = new THREE.LineSegments(aZoneEdges, aZoneLineMat);
   aZoneMesh.add(aZoneOutline);
 
   // H-ZONE indicator — shrinking yellow box
-  var hZoneMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+  var hZoneMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false });
   var hZoneGeo = new THREE.BoxGeometry(thinLen, boxHeight + 0.05, boxDepth + 0.05);
   hZoneMesh = new THREE.Mesh(hZoneGeo, hZoneMat);
   hZoneMesh.position.set(0, 0, 0.2);
   sarcomereGroup.add(hZoneMesh);
 
   var hZoneEdges = new THREE.EdgesGeometry(hZoneGeo);
-  var hZoneLineMat = new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.35 });
+  var hZoneLineMat = new THREE.LineBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.35, depthWrite: false });
   hZoneOutline = new THREE.LineSegments(hZoneEdges, hZoneLineMat);
   hZoneMesh.add(hZoneOutline);
 
   // I-BAND indicators — shrinking cyan boxes
-  var iBandMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.12, side: THREE.DoubleSide });
+  var iBandMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false });
   var iBandGeoL = new THREE.BoxGeometry(thinLen, boxHeight + 0.05, boxDepth + 0.05);
   
   hZoneLeftMesh = new THREE.Mesh(iBandGeoL, iBandMat.clone());
@@ -678,7 +678,7 @@ function buildSarcomere() {
   sarcomereGroup.add(hZoneLeftMesh);
 
   var iBandEdges = new THREE.EdgesGeometry(iBandGeoL);
-  var iBandLineMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 });
+  var iBandLineMat = new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35, depthWrite: false });
   hZoneLeftOutline = new THREE.LineSegments(iBandEdges, iBandLineMat);
   hZoneLeftMesh.add(hZoneLeftOutline);
 
@@ -745,7 +745,7 @@ function buildSarcoplasmicReticulum() {
 
   // SR represented as a semi-transparent structure above/below sarcomere
   var srGeo = new THREE.TorusGeometry(5, 0.4, 8, 32);
-  var srMat = new THREE.MeshPhongMaterial({ color:0x6366f1, emissive:0x1a1a4a, transparent:true, opacity:0.25, shininess:20 });
+  var srMat = new THREE.MeshPhongMaterial({ color:0x6366f1, emissive:0x1a1a4a, transparent:true, opacity:0.25, shininess:20, depthWrite: false });
   srMesh = new THREE.Mesh(srGeo, srMat);
   srMesh.rotation.x = Math.PI / 2;
   srMesh.position.set(0, yMin - 1.2, 0.2);
