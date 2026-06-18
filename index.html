@@ -165,6 +165,15 @@
     line-height: 1.4;
     color: #a1a1aa;
   }
+  .band-desc-box {
+    transition: all 0.2s ease;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .band-desc-box:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    transform: translateX(4px);
+  }
 </style>
 </head>
 <body>
@@ -316,6 +325,33 @@
         <div id="guide-event-desc" class="event-desc">
           Calcium is low. Tropomyosin is blocking actin binding sites.
         </div>
+      </div>
+
+      <!-- Bands & Zones Accordion -->
+      <div class="guide-section" style="margin-top: 4px; border-top: 1px solid rgba(63, 63, 70, 0.3); padding-top: 8px;">
+        <details id="bands-details" style="cursor: pointer; outline: none;">
+          <summary style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 4px; user-select: none;">
+            <span style="display: flex; align-items: center; gap: 4px;"><span>ℹ️</span> Sarcomere Bands & Zones</span>
+            <span style="font-size: 9px; color: #71717a; font-weight: normal; text-transform: none;">(Tap to toggle)</span>
+          </summary>
+          <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px; font-size: 11px; line-height: 1.35; color: #d4d4d8; cursor: default;" onclick="event.stopPropagation();">
+            <div style="background: rgba(129, 140, 248, 0.08); border-left: 2px solid #818cf8; padding: 6px; border-radius: 4px;" class="band-desc-box" onclick="highlightStructure('aband')">
+              <div style="color: #a5b4fc; font-weight: 700; display: flex; align-items: center; gap: 4px;">🟪 A-Band (Anisotropic)</div>
+              <div style="font-size: 10px; color: #a1a1aa; margin-top: 2px;"><b>What:</b> Central translucent purple block. Spans thick filaments.</div>
+              <div style="font-size: 10px; color: #38bdf8;"><b>Physiology: Width never changes during contraction.</b></div>
+            </div>
+            <div style="background: rgba(34, 211, 238, 0.08); border-left: 2px solid #22d3ee; padding: 6px; border-radius: 4px;" class="band-desc-box" onclick="highlightStructure('iband')">
+              <div style="color: #67e8f9; font-weight: 700; display: flex; align-items: center; gap: 4px;">🟩 I-Band (Isotropic)</div>
+              <div style="font-size: 10px; color: #a1a1aa; margin-top: 2px;"><b>What:</b> Translucent cyan blocks at Z-lines. Thin filaments only.</div>
+              <div style="font-size: 10px; color: #fb7185;"><b>Physiology: Shrinks & disappears during contraction.</b></div>
+            </div>
+            <div style="background: rgba(251, 191, 36, 0.08); border-left: 2px solid #fbbf24; padding: 6px; border-radius: 4px;" class="band-desc-box" onclick="highlightStructure('hzone')">
+              <div style="color: #fde047; font-weight: 700; display: flex; align-items: center; gap: 4px;">🟨 H-Zone (Hensen's)</div>
+              <div style="font-size: 10px; color: #a1a1aa; margin-top: 2px;"><b>What:</b> Central translucent yellow/brown block. Thick only.</div>
+              <div style="font-size: 10px; color: #fb7185;"><b>Physiology: Narrows & disappears during contraction.</b></div>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
     <div class="hud-bottom">
@@ -1651,7 +1687,10 @@ function highlightStructure(type) {
     head: '🟧 Myosin Heads - orange cross-bridges that cycle and pivot',
     ca: '🟨 Calcium Ions (Ca²⁺) - yellow floating balls released by SR',
     troponin: '🟪 Troponin - magenta spheres on tropomyosin that bind Ca²⁺',
-    sr: '🟪 Sarcoplasmic Reticulum - purple torus structure at the bottom'
+    sr: '🟪 Sarcoplasmic Reticulum - purple torus structure at the bottom',
+    aband: '🟪 A-Band - central translucent purple block spanning thick filaments',
+    iband: '🟩 I-Band - translucent cyan blocks near Z-lines containing only thin filaments',
+    hzone: '🟨 H-Zone - central translucent yellow-brown block containing only thick filaments'
   };
   if (names[type]) {
     showTip('🔍 Identified: ' + names[type], 5000);
@@ -1724,6 +1763,33 @@ function flashMesh(type) {
         }
       }
     }, 1000);
+  } else if (type === 'aband' && aZoneMesh) {
+    var lineMat = aZoneOutline.material;
+    aZoneMesh.material.opacity = 0.45; // flash bright
+    lineMat.opacity = 0.9;
+    setTimeout(function() { 
+      aZoneMesh.material.opacity = 0.05; // restore default
+      lineMat.opacity = 0.2;
+    }, 1200);
+  } else if (type === 'iband' && hZoneLeftMesh && hZoneRightMesh) {
+    hZoneLeftMesh.material.opacity = 0.45;
+    hZoneRightMesh.material.opacity = 0.45;
+    hZoneLeftOutline.material.opacity = 0.9;
+    hZoneRightOutline.material.opacity = 0.9;
+    setTimeout(function() {
+      hZoneLeftMesh.material.opacity = 0.12;
+      hZoneRightMesh.material.opacity = 0.12;
+      hZoneLeftOutline.material.opacity = 0.35;
+      hZoneRightOutline.material.opacity = 0.35;
+    }, 1200);
+  } else if (type === 'hzone' && hZoneMesh) {
+    hZoneMesh.material.opacity = 0.45;
+    var lineMat = hZoneOutline.material;
+    lineMat.opacity = 0.9;
+    setTimeout(function() {
+      hZoneMesh.material.opacity = 0.12;
+      lineMat.opacity = 0.35;
+    }, 1200);
   }
 }
 
